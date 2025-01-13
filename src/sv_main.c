@@ -171,6 +171,9 @@ cvar_t	coop = {"coop", "0"}; // dont delete this variable - it used by mods
 cvar_t	sv_paused = {"sv_paused", "0", CVAR_ROM};
 
 cvar_t	hostname = {"hostname", "unnamed", CVAR_SERVERINFO};
+cvar_t	hostport = {"hostport", "", CVAR_SERVERINFO};
+cvar_t	countrycode = {"countrycode", "", CVAR_SERVERINFO};
+cvar_t	city = {"city", "", CVAR_SERVERINFO};
 
 cvar_t sv_forcenick = {"sv_forcenick", "0"}; //0 - don't force; 1 - as login;
 cvar_t sv_registrationinfo = {"sv_registrationinfo", ""}; // text shown before "enter login"
@@ -193,6 +196,10 @@ cvar_t sv_pext_mvdsv_serversideweapon = { "sv_pext_mvdsv_serversideweapon", "1" 
 #endif
 
 cvar_t sv_extlimits = { "sv_extlimits", "2" };
+
+#if defined(FTE_PEXT_TRANS)
+cvar_t sv_pext_ezquake_verfortrans = {"pext_ezquake_verfortrans", "7814", CVAR_NONE};
+#endif
 
 qbool sv_error = false;
 
@@ -3431,6 +3438,9 @@ void SV_InitLocal (void)
 	Cvar_Register (&maxspectators);
 	Cvar_Register (&maxvip_spectators);
 	Cvar_Register (&hostname);
+	Cvar_Register (&hostport);
+	Cvar_Register (&countrycode);
+	Cvar_Register (&city);
 	Cvar_Register (&deathmatch);
 	Cvar_Register (&watervis);
 	Cvar_Register (&serverdemo);
@@ -3511,6 +3521,10 @@ void SV_InitLocal (void)
 	Cvar_Register (&sv_pext_mvdsv_serversideweapon);
 #endif
 
+#ifdef FTE_PEXT_TRANS
+	Cvar_Register(&sv_pext_ezquake_verfortrans);
+#endif
+
 	Cvar_Register (&sv_reliable_sound);
 
 	Cvar_Register(&qws_name);
@@ -3574,7 +3588,12 @@ void SV_InitLocal (void)
 #ifdef FTE_PEXT_SPAWNSTATIC2
 	svs.fteprotocolextensions |= FTE_PEXT_SPAWNSTATIC2;
 #endif
-
+#ifdef FTE_PEXT_TRANS
+    svs.fteprotocolextensions |= FTE_PEXT_TRANS;
+#endif
+#ifdef FTE_PEXT_COLOURMOD
+	svs.fteprotocolextensions |= FTE_PEXT_COLOURMOD;
+#endif
 #ifdef FTE_PEXT2_VOICECHAT
 	svs.fteprotocolextensions2 |= FTE_PEXT2_VOICECHAT;
 #endif
