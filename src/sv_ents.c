@@ -651,14 +651,6 @@ static void SV_WritePlayersToClient (client_t *client, client_frame_t *frame, by
 			pflags |= PF_TRANS_Z;
 		}
 #endif
-#ifdef FTE_PEXT_COLOURMOD
-		if (client->fteprotocolextensions & FTE_PEXT_COLOURMOD &&
-		    (ent->xv.colourmod[0] > 0.0f && ent->xv.colourmod[1] > 0.0f && ent->xv.colourmod[2] > 0.0f) &&
-		    !(ent->xv.colourmod[0] == 1.0f && ent->xv.colourmod[1] == 1.0f && ent->xv.colourmod[2] == 1.0f))
-		{
-			pflags |= PF_COLOURMOD;
-		}
-#endif
 
 		// Z_EXT_PM_TYPE protocol extension
 		// encode pm_type and jump_held into pm_code
@@ -711,8 +703,8 @@ static void SV_WritePlayersToClient (client_t *client, client_frame_t *frame, by
 		MSG_WriteByte (msg, svc_playerinfo);
 		MSG_WriteByte (msg, j);
 
-#if defined(FTE_PEXT_TRANS) && defined(FTE_PEXT_COLOURMOD)
-		if (client->fteprotocolextensions & (FTE_PEXT_TRANS | FTE_PEXT_COLOURMOD))
+#if defined(FTE_PEXT_TRANS)
+		if (client->fteprotocolextensions & FTE_PEXT_TRANS)
 		{
 			if (pflags & 0xff0000)
 			{
@@ -837,14 +829,6 @@ static void SV_WritePlayersToClient (client_t *client, client_frame_t *frame, by
 		if (pflags & PF_TRANS_Z)
 		{
 			MSG_WriteByte (msg, bound(1, (byte)(ent->xv.alpha * 254.0f), 254));
-		}
-#endif
-#ifdef FTE_PEXT_COLOURMOD
-		if (pflags & PF_COLOURMOD)
-		{
-			MSG_WriteByte(msg, bound(0, ent->xv.colourmod[0] * (256.0f / 8.0f), 255));
-			MSG_WriteByte(msg, bound(0, ent->xv.colourmod[1] * (256.0f / 8.0f), 255));
-			MSG_WriteByte(msg, bound(0, ent->xv.colourmod[2] * (256.0f / 8.0f), 255));
 		}
 #endif
 	}
