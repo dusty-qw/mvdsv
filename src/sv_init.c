@@ -401,7 +401,7 @@ void SV_SpawnServer(char *mapname, qbool devmap, char* entityfile, qbool loading
 	for (i = 0; i < sv.max_edicts; i++)
 	{
 		sv.edicts[i].v = (entvars_t *)((byte *)sv.game_edicts + i * pr_edict_size);
-		sv.edicts[i].xv = &(sv.extentdata[i]);//(extentvars_t *)((byte *)sv.game_edicts + i * pr_edict_size);
+		sv.edicts[i].xv2 = &(sv.extentdata[i]);//(extentvars_t *)((byte *)sv.game_edicts + i * pr_edict_size);
 		sv.edicts[i].e.entnum = i;
 		sv.edicts[i].e.area.ed = &sv.edicts[i]; // yeah, pretty funny, but this help to find which edict_t own this area (link_t)
 		PR_ClearEdict(&sv.edicts[i]);

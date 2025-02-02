@@ -2019,7 +2019,7 @@ intptr_t PF2_SetExtField(intptr_t *args)
 
 	if (i < 0)
 		return 0;
-	((int*)e->xv)[i] = value;
+	((int*)e->xv2)[i] = value;
 	return value;
 }
 
@@ -2032,7 +2032,7 @@ intptr_t PF2_GetExtField(intptr_t *args)
 
 	if (i < 0)
 		return 0;
-	return ((int*)e->xv)[i];
+	return ((int*)e->xv2)[i];
 }
 
 

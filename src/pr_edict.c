@@ -94,6 +94,7 @@ void ED_ClearEdict (edict_t *e)
 {
 	memset(e->v, 0, pr_edict_size);
 	memset(&e->xv, 0, sizeof(ext_entvars_t));
+	memset(e->xv2, 0, sizeof(extentvars_t));
 	e->e.lastruntime = 0;
 	e->e.free = false;
 	PR_ClearEdict(e);

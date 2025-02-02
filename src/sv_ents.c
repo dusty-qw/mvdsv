@@ -860,7 +860,7 @@ qbool SV_EntityVisibleToClient (client_t* client, int e, byte* pvs)
 	}
 
 	// if pvsflags are set to ignore all
-	if (((int)ent->xv->pvsflags & PVSF_IGNOREPVS) == PVSF_IGNOREPVS)
+	if (((int)ent->xv2->pvsflags & PVSF_IGNOREPVS) == PVSF_IGNOREPVS)
 		return true;
 
 	// ignore ents without visible models
@@ -1209,7 +1209,7 @@ int SV_SimpleProjectileWriteFrame_CSQC(client_t *client, struct sizebuf_s *msg, 
 
 		ed = EDICT_NUM(number);//sv.edicts + number;
 		client->csqcentityscope[number] &= ~SCOPE_WANTSEND;
-		if (ed->xv->SendEntity)
+		if (ed->xv2->SendEntity)
 		{
 			client->csqcentityscope[number] |= SCOPE_WANTUPDATE;
 		}
@@ -1362,11 +1362,11 @@ int SV_PrepareEntity_CSQC(edict_t *ent, entity_state_t *cs, int enumber)
 	unsigned int sendflags;
 	int i;
 
-	if (ent->xv->SendEntity == 0)
+	if (ent->xv2->SendEntity == 0)
 		return false;
 
 	//for (i = 0; i < MAX_CLIENTS; i++)
-	//	svs.clients[i].csqcentitysendflags[enumber] |= 65535;//(int)ent->xv->SendFlags;
+	//	svs.clients[i].csqcentitysendflags[enumber] |= 65535;//(int)ent->xv2->SendFlags;
 
 	return true;
 }

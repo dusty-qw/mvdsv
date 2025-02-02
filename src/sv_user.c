@@ -356,8 +356,9 @@ static void Cmd_New_f (void)
 	if (sv_client->fteprotocolextensions & FTE_PEXT_CSQC) {
 		SV_ClientPrintf(sv_client, 2, "\n\nENABLING CSQC FOR YOU!\nYOU'RE WELCOME\n");
 		sv_client->csqcactive = true;
+	}
 #endif
-#if defined(FTE_PEXT_TRANS)
+#ifdef FTE_PEXT_TRANS
 	if (sv_client->fteprotocolextensions & FTE_PEXT_TRANS)
 	{
 		const char *client_string = Info_Get(&sv_client->_userinfo_ctx_, "*client");

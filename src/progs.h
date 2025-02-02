@@ -74,6 +74,7 @@ typedef struct edict_s
 {
 	sv_edict_t	e;			// server side part of the edict_t
 	ext_entvars_t	xv;
+	extentvars_t  *xv2;
 	entvars_t	*v;			// C exported fields from progs
 } edict_t;
 
