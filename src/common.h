@@ -106,6 +106,7 @@ void MSG_ReadSkip(int bytes);
 char *Q_normalizetext (char *name); //bliP: red to white text
 unsigned char *Q_redtext (unsigned char *str); //bliP: white to red text
 unsigned char *Q_yelltext (unsigned char *str); //VVD: white to red text and yellow numbers
+unsigned char *Q_normalizefilenametext (unsigned char *str);
 
 //============================================================================
 
