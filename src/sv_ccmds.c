@@ -1701,7 +1701,8 @@ SV_Snap
 void SV_Snap (int uid)
 {
 	client_t *cl;
-	char pcxname[80];
+	char name[32];
+	char pcxname[128];
 	char checkname[MAX_OSPATH];
 	int i;
 	FILE *f;
@@ -1719,8 +1720,11 @@ void SV_Snap (int uid)
 		return;
 	}
 
+	snprintf (name, sizeof(name), "%s", cl->name);
+	Q_normalizefilenametext (name);
+
 	FS_CreatePath (va ("%s/snap/", fs_gamedir));
-	snprintf (pcxname, sizeof (pcxname), "%d-00.pcx", uid);
+	snprintf (pcxname, sizeof (pcxname), "%s-%d-00.jpg", name, uid);
 
 	for (i=0 ; i<=99 ; i++)
 	{
