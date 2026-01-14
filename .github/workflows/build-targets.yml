@@ -54,6 +54,8 @@ jobs:
           release: "14.2"
           usesh: true
           prepare: |
+            pkg update -f
+            pkg upgrade -y
             pkg install -y bash cmake git
           run: |
             git config --global --add safe.directory /home/runner/work/mvdsv/mvdsv
