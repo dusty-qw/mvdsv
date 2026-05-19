@@ -62,6 +62,10 @@ typedef intptr_t (*ext_syscall_t)(intptr_t *arg);
 static intptr_t EXT_SetSendNeeded(intptr_t *args);
 #endif
 static intptr_t EXT_MapExtFieldPtr(intptr_t *args);
+#ifdef MVD_PEXT1_SPRAYS
+static intptr_t EXT_SprayClear(intptr_t *args);
+static intptr_t EXT_SprayClearAll(intptr_t *args);
+#endif
 static intptr_t EXT_SetExtFieldPtr(intptr_t *args);
 static intptr_t EXT_GetExtFieldPtr(intptr_t *args);
 struct
@@ -75,6 +79,10 @@ struct
 	{"GetExtFieldPtr",	EXT_GetExtFieldPtr},
 #ifdef FTE_PEXT_CSQC
 	{"setsendneeded",		EXT_SetSendNeeded},
+#endif
+#ifdef MVD_PEXT1_SPRAYS
+	{"sprayclear",		EXT_SprayClear},
+	{"sprayclearall",	EXT_SprayClearAll},
 #endif
 };
 ext_syscall_t ext_syscall_tbl[256];
@@ -2119,6 +2127,19 @@ static intptr_t EXT_MapExtFieldPtr(intptr_t *args)
 
 	return 0;
 }
+
+#ifdef MVD_PEXT1_SPRAYS
+static intptr_t EXT_SprayClear(intptr_t *args)
+{
+	return SV_SpraysClearOne(args[1], true);
+}
+
+static intptr_t EXT_SprayClearAll(intptr_t *args)
+{
+	SV_SpraysClearAll(true);
+	return 1;
+}
+#endif
 
 /*
   int trap_Map_Extension( const char* ext_name, int mapto)
