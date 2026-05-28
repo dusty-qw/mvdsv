@@ -2255,6 +2255,17 @@ static void Cmd_Upload_f (void)
 		return;
 	}
 
+	SV_ReplaceChar(sv_client->uploadfn, '\\', '/');
+	if (!strncmp(sv_client->uploadfn, "../", 3) || strstr(sv_client->uploadfn, "/../") || sv_client->uploadfn[0] == '/'
+#ifdef _WIN32
+	        || (isalpha(sv_client->uploadfn[0]) && sv_client->uploadfn[1] == ':')
+#endif
+	   )
+	{
+		Con_Printf ("Illegal upload path.\n");
+		return;
+	}
+
 	if ((f = fopen(sv_client->uploadfn, "rb")))
 	{
 		Con_Printf ("File already exists.\n");
