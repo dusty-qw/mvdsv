@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9.0)
+cmake_minimum_required(VERSION 3.25...4.3)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
