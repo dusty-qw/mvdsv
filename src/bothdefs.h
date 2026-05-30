@@ -152,12 +152,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 typedef unsigned char byte;
 
+#ifndef __cplusplus
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+// C23: bool, false, true are built-in keywords; use bool directly
+typedef bool qbool;
+#else
 // KJB Undefined true and false defined in SciTech's DEBUG.H header
 #undef true
 #undef false
-
-#ifndef __cplusplus
 typedef enum qbool_e {false, true} qbool;
+#endif
 #else
 typedef bool qbool;
 #endif

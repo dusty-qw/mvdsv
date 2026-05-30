@@ -103,7 +103,7 @@ else()
 endif()
 
 ######################################################################################################
- 
+
 # Check for PCRE. if found, include it; if not found, use bundled PCRE.
 find_library(PCRE_LIBRARIES pcre)
 if(PCRE_LIBRARIES)
@@ -124,7 +124,7 @@ endif()
 ######################################################################################################
 
 # Set base compiler flags
-set(CFLAGS -Wall -std=gnu17)
+set(CFLAGS -Wall)
 set(LFLAGS)
 
 
