@@ -94,12 +94,14 @@ typedef struct {
 
 typedef struct {
 	unsigned short ids[SV_SPRAY_SEND_QUEUE];
+	qbool silent[SV_SPRAY_SEND_QUEUE];
 	int head;
 	int count;
 
 	// current_id/offset let each client trickle one spray over many frames
 	// without filling reliable back buffers or causing ping spikes.
 	unsigned short current_id;
+	qbool current_silent;
 	int offset;
 } sv_spray_sendqueue_t;
 
@@ -333,10 +335,10 @@ static sv_spray_t *SV_SprayAllocSlot(void)
 	return &sv_sprays[0];
 }
 
-static void SV_SprayWriteBegin(client_t *client, const sv_spray_t *spray)
+static void SV_SprayWriteBegin(client_t *client, const sv_spray_t *spray, qbool silent)
 {
 	ClientReliableWrite_Begin(client, svc_spray, 1 + 1 + 2 + spraynet_hash_bytes + 2 + 2 + 4 + 12 * 4);
-	ClientReliableWrite_Byte(client, spraynet_begin);
+	ClientReliableWrite_Byte(client, silent ? spraynet_begin_silent : spraynet_begin);
 	ClientReliableWrite_Short(client, spray->id);
 	SV_SprayWriteHash(client, spray->hash);
 
@@ -402,10 +404,12 @@ static void SV_SprayQueueClearForId(int id)
 	for (i = 0; i < MAX_CLIENTS; ++i) {
 		sv_spray_sendqueue_t *queue = &sv_spray_sendqueues[i];
 		unsigned short kept[SV_SPRAY_SEND_QUEUE];
+		qbool kept_silent[SV_SPRAY_SEND_QUEUE];
 		int j, kept_count = 0;
 
 		if (queue->current_id == id) {
 			queue->current_id = 0;
+			queue->current_silent = false;
 			queue->offset = 0;
 		}
 
@@ -413,17 +417,20 @@ static void SV_SprayQueueClearForId(int id)
 			int index = (queue->head + j) % SV_SPRAY_SEND_QUEUE;
 
 			if (queue->ids[index] != id) {
-				kept[kept_count++] = queue->ids[index];
+				kept[kept_count] = queue->ids[index];
+				kept_silent[kept_count] = queue->silent[index];
+				++kept_count;
 			}
 		}
 
 		memcpy(queue->ids, kept, kept_count * sizeof(kept[0]));
+		memcpy(queue->silent, kept_silent, kept_count * sizeof(kept_silent[0]));
 		queue->head = 0;
 		queue->count = kept_count;
 	}
 }
 
-static void SV_SprayQueueForClient(client_t *client, int id)
+static void SV_SprayQueueForClient(client_t *client, int id, qbool silent)
 {
 	sv_spray_sendqueue_t *queue;
 	int tail;
@@ -446,6 +453,7 @@ static void SV_SprayQueueForClient(client_t *client, int id)
 
 	tail = (queue->head + queue->count) % SV_SPRAY_SEND_QUEUE;
 	queue->ids[tail] = id;
+	queue->silent[tail] = silent;
 	++queue->count;
 }
 
@@ -458,7 +466,7 @@ static void SV_SprayBroadcast(const sv_spray_t *spray)
 		if (client->state != cs_spawned || i == spray->owner) {
 			continue;
 		}
-		SV_SprayQueueForClient(client, spray->id);
+		SV_SprayQueueForClient(client, spray->id, false);
 	}
 }
 
@@ -528,7 +536,7 @@ static qbool SV_SprayRecordHiddenBlock(const byte *payload, int payload_len)
 	return false;
 }
 
-static void SV_SprayRecordBegin(const sv_spray_t *spray)
+static void SV_SprayRecordBegin(const sv_spray_t *spray, qbool silent)
 {
 	byte buffer[1 + 2 + spraynet_hash_bytes + 2 + 2 + 4 + 12 * 4];
 	sizebuf_t msg;
@@ -538,7 +546,7 @@ static void SV_SprayRecordBegin(const sv_spray_t *spray)
 	memset(&msg, 0, sizeof(msg));
 	msg.data = buffer;
 	msg.maxsize = sizeof(buffer);
-	MSG_WriteByte(&msg, spraynet_begin);
+	MSG_WriteByte(&msg, silent ? spraynet_begin_silent : spraynet_begin);
 	MSG_WriteShort(&msg, spray->id);
 	MSG_WriteLong(&msg, (int)(spray->hash & 0xffffffffULL));
 	MSG_WriteLong(&msg, (int)(spray->hash >> 32));
@@ -585,7 +593,7 @@ static void SV_SprayRecordPixels(int id, const byte *pixels, int byte_count)
 	}
 }
 
-static void SV_SprayRecordPlacement(const sv_spray_t *spray)
+static void SV_SprayRecordPlacement(const sv_spray_t *spray, qbool silent)
 {
 	if (!spray || !spray->active) {
 		return;
@@ -594,7 +602,7 @@ static void SV_SprayRecordPlacement(const sv_spray_t *spray)
 	// Demo/QTV streams must be self-contained. Always record the placement
 	// metadata plus the full image payload, even when live clients/server caches
 	// could have used only the hash.
-	SV_SprayRecordBegin(spray);
+	SV_SprayRecordBegin(spray, silent);
 	SV_SprayRecordPixels(spray->id, spray->pixels, spray->byte_count);
 }
 
@@ -778,7 +786,7 @@ void SV_SpraysRecordExisting(void)
 	}
 
 	for (i = 0; i < SV_MAX_SPRAYS; ++i) {
-		SV_SprayRecordPlacement(&sv_sprays[i]);
+		SV_SprayRecordPlacement(&sv_sprays[i], true);
 	}
 }
 
@@ -796,7 +804,7 @@ void SV_SpraysSendExisting(client_t *client)
 	sv_spray_client_hash_counts[SV_SprayClientIndex(client)] = 0;
 	for (i = 0; i < SV_MAX_SPRAYS; ++i) {
 		if (sv_sprays[i].active) {
-			SV_SprayQueueForClient(client, sv_sprays[i].id);
+			SV_SprayQueueForClient(client, sv_sprays[i].id, true);
 		}
 	}
 }
@@ -824,6 +832,7 @@ void SV_SpraysSendPending(client_t *client)
 			}
 
 			queue->current_id = queue->ids[queue->head];
+			queue->current_silent = queue->silent[queue->head];
 			queue->head = (queue->head + 1) % SV_SPRAY_SEND_QUEUE;
 			--queue->count;
 			queue->offset = -1;
@@ -832,6 +841,7 @@ void SV_SpraysSendPending(client_t *client)
 		spray = SV_SprayFind(queue->current_id);
 		if (!spray) {
 			queue->current_id = 0;
+			queue->current_silent = false;
 			queue->offset = 0;
 			continue;
 		}
@@ -840,11 +850,12 @@ void SV_SpraysSendPending(client_t *client)
 			if (!SV_SprayReliableCanWrite(client, 1 + 1 + 2 + spraynet_hash_bytes + 2 + 2 + 4 + 12 * 4)) {
 				return;
 			}
-			SV_SprayWriteBegin(client, spray);
+			SV_SprayWriteBegin(client, spray, queue->current_silent);
 			if (SV_SprayClientKnowsHash(client, spray->hash)) {
 				// Placement-only path: client already has texture bytes for
 				// this hash, so the begin message is enough.
 				queue->current_id = 0;
+				queue->current_silent = false;
 				queue->offset = 0;
 				continue;
 			}
@@ -868,6 +879,7 @@ void SV_SpraysSendPending(client_t *client)
 			if (queue->offset == spray->byte_count) {
 				SV_SprayClientRememberHash(client, spray->hash);
 				queue->current_id = 0;
+				queue->current_silent = false;
 				queue->offset = 0;
 			}
 		}
@@ -935,7 +947,7 @@ static void SV_SprayFinalize(client_t *client, const sv_spray_upload_t *upload, 
 	// Store first so broadcast, demo recording, and the mod callback all refer
 	// to the same authoritative server id and placement.
 	SV_SprayBroadcast(spray);
-	SV_SprayRecordPlacement(spray);
+	SV_SprayRecordPlacement(spray, false);
 	SV_SprayModPlaced(client, spray);
 }
 
