@@ -221,6 +221,30 @@ static sv_spray_t *SV_SprayFind(int id)
 	return NULL;
 }
 
+static qbool SV_SprayIdOlder(unsigned short a, unsigned short b)
+{
+	// Spray ids are monotonically assigned unsigned shorts. With only 64 active
+	// sprays, modulo comparison keeps "oldest" correct across id wraparound.
+	return (short)(a - b) < 0;
+}
+
+static sv_spray_t *SV_SprayOldest(void)
+{
+	int i;
+	sv_spray_t *oldest = NULL;
+
+	for (i = 0; i < SV_MAX_SPRAYS; ++i) {
+		if (!sv_sprays[i].active) {
+			continue;
+		}
+		if (!oldest || SV_SprayIdOlder(sv_sprays[i].id, oldest->id)) {
+			oldest = &sv_sprays[i];
+		}
+	}
+
+	return oldest;
+}
+
 static sv_spray_image_t *SV_SprayImageFind(unsigned long long hash)
 {
 	int i;
@@ -294,7 +318,18 @@ static sv_spray_t *SV_SprayAllocSlot(void)
 		}
 	}
 
-	SV_SpraysClearOne(sv_sprays[0].id, true);
+	// The mod owns quota policy. If the mod allowed this placement and did not
+	// clear a player-owned spray first, fall back to the server-wide oldest
+	// active spray. Slots are reused, so slot 0 is not necessarily oldest.
+	{
+		sv_spray_t *oldest = SV_SprayOldest();
+
+		if (oldest) {
+			SV_SpraysClearOne(oldest->id, true);
+			return oldest;
+		}
+	}
+
 	return &sv_sprays[0];
 }
 
