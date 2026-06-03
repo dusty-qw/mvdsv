@@ -2928,7 +2928,7 @@ void SV_SavePenaltyFilter (client_t *cl, filtertype_t type, double pentime)
 			return;
 		}
 
-	if (numpenfilters == MAX_IPFILTERS)
+	if (numpenfilters == MAX_PENFILTERS)
 	{
 		return;
 	}
