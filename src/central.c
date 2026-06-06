@@ -339,7 +339,7 @@ static void Web_SubmitRequestForm(const char* url, struct curl_httppost *first_f
 {
 	CURL* req = curl_easy_init();
 	web_request_data_t* data = Q_malloc(sizeof(web_request_data_t));
-	CURLFORMcode code = curl_formadd(&first_form_ptr, &last_form_ptr,
+	curl_formadd(&first_form_ptr, &last_form_ptr,
 		CURLFORM_PTRNAME, "authKey",
 		CURLFORM_COPYCONTENTS, sv_www_authkey.string,
 		CURLFORM_END
@@ -370,20 +370,19 @@ void Central_VerifyChallengeResponse(client_t* client, const char* challenge, co
 	char url[512];
 	struct curl_httppost *first_form_ptr = NULL;
 	struct curl_httppost *last_form_ptr = NULL;
-	CURLFORMcode code;
 
 	if (!sv_www_address.string[0]) {
 		SV_ClientPrintf2(client, PRINT_HIGH, "Remote logins not supported on this server\n");
 		return;
 	}
 
-	code = curl_formadd(&first_form_ptr, &last_form_ptr,
+	curl_formadd(&first_form_ptr, &last_form_ptr,
 		CURLFORM_PTRNAME, "challenge",
 		CURLFORM_COPYCONTENTS, challenge,
 		CURLFORM_END
 	);
 
-	code = curl_formadd(&first_form_ptr, &last_form_ptr,
+	curl_formadd(&first_form_ptr, &last_form_ptr,
 		CURLFORM_PTRNAME, "response",
 		CURLFORM_COPYCONTENTS, response,
 		CURLFORM_END
@@ -400,7 +399,6 @@ void Central_GenerateChallenge(client_t* client, const char* username, qbool dur
 	char url[512];
 	struct curl_httppost *first_form_ptr = NULL;
 	struct curl_httppost *last_form_ptr = NULL;
-	CURLFORMcode code;
 
 	if (!sv_www_address.string[0]) {
 		SV_ClientPrintf2(client, PRINT_HIGH, "Remote logins not supported on this server\n");
@@ -409,13 +407,13 @@ void Central_GenerateChallenge(client_t* client, const char* username, qbool dur
 
 	Web_ConstructURL(url, GENERATE_CHALLENGE_PATH, sizeof(url));
 
-	code = curl_formadd(&first_form_ptr, &last_form_ptr,
+	curl_formadd(&first_form_ptr, &last_form_ptr,
 		CURLFORM_PTRNAME, "userName",
 		CURLFORM_COPYCONTENTS, username,
 		CURLFORM_END
 	);
 
-	code = curl_formadd(&first_form_ptr, &last_form_ptr,
+	curl_formadd(&first_form_ptr, &last_form_ptr,
 		CURLFORM_PTRNAME, "status",
 		CURLFORM_COPYCONTENTS, during_login ? "0" : "1",
 		CURLFORM_END
@@ -445,7 +443,6 @@ static qbool Web_AddParametersToRequest(int first_param, struct curl_httppost** 
 
 	for (i = first_param; i < Cmd_Argc() - 1; i += 2) {
 		char encoded_value[MAX_ENCODED_STRINGLEN];
-		int encoded_length = 0;
 		int j;
 		char* name;
 		char* value;

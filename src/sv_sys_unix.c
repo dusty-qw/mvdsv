@@ -451,10 +451,9 @@ Sys_Printf
 void Sys_Printf (char *fmt, ...)
 {
 	va_list     argptr;
-	char        text[4096], line[4096];
+	char        text[4096];
 	char*       startpos;
 	char*       endpos;
-	int         len;
 	date_t      date;
 
 	va_start (argptr,fmt);
