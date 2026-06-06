@@ -41,7 +41,7 @@ void SV_SetMaster_f (void)
 
 	memset (&master_adr, 0, sizeof(master_adr));
 
-	for (i=1 ; i<Cmd_Argc() ; i++)
+	for (i=1 ; i<Cmd_Argc() && i-1 < MAX_MASTERS ; i++)
 	{
 		if (!strcmp(Cmd_Argv(i), "none") || !NET_StringToAdr (Cmd_Argv(i), &master_adr[i-1]))
 		{
