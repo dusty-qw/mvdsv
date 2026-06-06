@@ -603,7 +603,7 @@ typedef struct
 	socket_t		socketip;		// main server UDP socket.
 
 // TCPCONNECT -->
-	int				sockettcp;		// server TCP socket, used for QTV/TCPCONNECT.
+	socket_t		sockettcp;		// server TCP socket, used for QTV/TCPCONNECT.
 	svtcpstream_t *	tcpstreams;
 // <-- TCPCONNECT
 
