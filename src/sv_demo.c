@@ -574,9 +574,10 @@ static void SV_MVDWritePausedTime(demo_frame_t* frame)
 		MSG_WriteByte(&msg, 0);                                           //     0: duration == 0, for demos
 		MSG_WriteByte(&msg, dem_multiple);                                //     1: target of the packet
 		MSG_WriteLong(&msg, 0);                                           //  2- 5: 0 ... demo_multiple(0) => hidden packet
-		MSG_WriteLong(&msg, LittleLong(sizeof(short) + sizeof(byte)));    //  6-10: length = <short> + <byte>
-		MSG_WriteShort(&msg, LittleShort(mvdhidden_paused_duration));     // 11-12: tell QTV how much time has really passed
-		MSG_WriteByte(&msg, duration);                                    //    13: true ms value, as demo packets will have 0
+		MSG_WriteLong(&msg, LittleLong(sizeof_mvdhidden_block_header_t_range0 + sizeof(byte)));  // hidden message payload size: [u32 length][u16 type_id] + body
+		MSG_WriteLong(&msg, LittleLong(sizeof(byte)));                    // hidden-block header: body length (one byte: msec)
+		MSG_WriteShort(&msg, LittleShort(mvdhidden_paused_duration));     // hidden-block header: type id
+		MSG_WriteByte(&msg, duration);                                    // body: true elapsed msec (demo frames carry 0)
 
 		for (d = demo.dest; d; d = d->nextdest) {
 			DemoWriteDest(msg.data, msg.cursize, d);
