@@ -1,0 +1,152 @@
+name: reusable build workflow
+on:
+  workflow_call:
+    inputs:
+      runner:
+        type: string
+        default: ubuntu-24.04
+      deploy_type:
+        # options are [snapshot, release]
+        type: string
+      release_version:
+        type: string
+        default: ''
+jobs:
+  build:
+    runs-on: ${{ inputs.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [linux-amd64, linux-i686, linux-armhf, linux-aarch64, windows-x64, windows-x86]
+        include:
+          - target: linux-amd64
+            os: linux
+            arch: amd64
+          - target: linux-i686
+            os: linux
+            arch: i386
+            cross-compiler-package: gcc-i686-linux-gnu
+          - target: linux-armhf
+            os: linux
+            arch: armhf
+            cross-compiler-package: gcc-arm-linux-gnueabihf
+          - target: linux-aarch64
+            os: linux
+            arch: arm64
+            cross-compiler-package: gcc-aarch64-linux-gnu
+          - target: windows-x64
+            os: windows
+            arch: x64
+            cross-compiler-package: gcc-mingw-w64-x86-64
+          - target: windows-x86
+            os: windows
+            arch: x86
+            cross-compiler-package: gcc-mingw-w64-i686
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      # The main archive doesn't have armhf, arm64 binaries, so if we add the
+      # foreign arch, `apt update` will fail on it. So add the 'Architectures'
+      # field to ensure it fetches the right meta-data.
+      - name: Fix the sources
+        if: matrix.arch == 'armhf' || matrix.arch == 'arm64'
+        run: |
+          sudo tee /etc/apt/sources.list.d/ubuntu.sources <<EOF
+          Types: deb
+          Architectures: i386 amd64
+          URIs: http://archive.ubuntu.com/ubuntu/
+          Suites: noble noble-updates
+          Components: main universe restricted multiverse
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+          Types: deb
+          Architectures: i386 amd64
+          URIs: http://security.ubuntu.com/ubuntu/
+          Suites: noble-security
+          Components: main universe restricted multiverse
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+          EOF
+
+          sudo tee /etc/apt/sources.list.d/ubuntu-ports.sources <<EOF
+          Types: deb
+          Architectures: armhf arm64
+          URIs: http://ports.ubuntu.com/ubuntu-ports
+          Suites: noble noble-updates noble-backports
+          Components: main universe restricted multiverse
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+          EOF
+
+      - name: Install build dependencies
+        run: |
+          if [ "${{ matrix.os }}" = "linux" ] && [ "${{ matrix.arch }}" != "amd64" ]; then
+            sudo dpkg --add-architecture ${{ matrix.arch }}
+          fi
+          sudo apt-get -qq update
+          sudo apt-get -qq install cmake build-essential ninja-build ${{ matrix.cross-compiler-package }}
+          if [ "${{ matrix.os }}" = "linux" ]; then
+            sudo apt-get -qq --no-install-recommends install libcurl4-openssl-dev:${{ matrix.arch }}
+          fi
+
+      - name: Build
+        run: ./build_cmake.sh ${{ matrix.target }}
+
+      - name: Create checksums
+        env:
+          BINARY: ${{ matrix.os == 'windows' && 'mvdsv.exe' || 'mvdsv' }}
+        if: inputs.deploy_type != ''
+        run: |
+          md5sum build/${{ matrix.target }}/${BINARY} > build/${{ matrix.target }}/${BINARY}.md5
+
+      - name: Setup SSH
+        if: inputs.deploy_type != ''
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+          ssh-add - <<< "${{ secrets.SSH_PRIVATE_KEY }}"
+
+      - name: Set date
+        if: inputs.deploy_type != ''
+        run: |
+          echo "DATE=$(TZ="Europe/Amsterdam" date "+%Y%m%d-%H%M%S")" >> $GITHUB_ENV
+
+      - name: Deploy release
+        if: inputs.deploy_type == 'release'
+        env:
+          BINARY: ${{ matrix.os == 'windows' && 'mvdsv.exe' || 'mvdsv' }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          mkdir -p upload/releases/${{ inputs.release_version }}/${{ matrix.os }}/${{ matrix.arch }}
+          mkdir -p upload/releases/latest/${{ matrix.os }}/${{ matrix.arch }}
+          cp build/${{ matrix.target }}/${BINARY} \
+            upload/releases/${{ inputs.release_version }}/${{ matrix.os }}/${{ matrix.arch }}/${BINARY}
+          cp build/${{ matrix.target }}/${BINARY}.md5 \
+            upload/releases/${{ inputs.release_version }}/${{ matrix.os }}/${{ matrix.arch }}/${BINARY}.md5
+          cp build/${{ matrix.target }}/${BINARY} \
+            upload/releases/latest/${{ matrix.os }}/${{ matrix.arch }}/${BINARY}
+          cp build/${{ matrix.target }}/${BINARY}.md5 \
+            upload/releases/latest/${{ matrix.os }}/${{ matrix.arch }}/${BINARY}.md5
+          sftp -rp -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' -P ${{ secrets.SFTP_PORT }} \
+            ${{ secrets.SFTP_USERNAME }}@${{ secrets.SFTP_HOST }}:/releases <<< $'put -rp upload/releases/*'
+
+      - name: Deploy snapshot
+        if: inputs.deploy_type == 'snapshot'
+        env:
+          BINARY: ${{ matrix.os == 'windows' && 'mvdsv.exe' || 'mvdsv' }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          mkdir -p upload/snapshots/${{ matrix.os }}/${{ matrix.arch }}
+          mkdir -p upload/snapshots/latest/${{ matrix.os }}/${{ matrix.arch }}
+          cp build/${{ matrix.target }}/${BINARY} \
+            upload/snapshots/${{ matrix.os }}/${{ matrix.arch }}/${{ env.DATE }}_${GITHUB_SHA::7}_${BINARY}
+          cp build/${{ matrix.target }}/${BINARY}.md5 \
+            upload/snapshots/${{ matrix.os }}/${{ matrix.arch }}/${{ env.DATE }}_${GITHUB_SHA::7}_${BINARY}.md5
+          cp build/${{ matrix.target }}/${BINARY} \
+            upload/snapshots/latest/${{ matrix.os }}/${{ matrix.arch }}/${BINARY}
+          cp build/${{ matrix.target }}/${BINARY}.md5 \
+            upload/snapshots/latest/${{ matrix.os }}/${{ matrix.arch }}/${BINARY}.md5
+          sftp -rp -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' -P ${{ secrets.SFTP_PORT }} \
+            ${{ secrets.SFTP_USERNAME }}@${{ secrets.SFTP_HOST }}:/snapshots <<< $'put -rp upload/snapshots/*'
