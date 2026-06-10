@@ -81,13 +81,23 @@ jobs:
 
       - name: Install build dependencies
         run: |
+          set -x
+          if [ -n "${RUNNER_DEBUG:-}" ]; then
+            echo '== ACTIONS_RUNNER_DEBUG is set, using debug output =='
+            APT_FLAGS="--verbose-versions"
+          else
+            APT_FLAGS=""
+          fi
+
           if [ "${{ matrix.os }}" = "linux" ] && [ "${{ matrix.arch }}" != "amd64" ]; then
             sudo dpkg --add-architecture ${{ matrix.arch }}
           fi
-          sudo apt-get -qq update
-          sudo apt-get -qq install cmake build-essential ninja-build ${{ matrix.cross-compiler-package }}
+
+          sudo apt-get ${APT_FLAGS} update
+
+          sudo apt-get ${APT_FLAGS} install cmake build-essential ninja-build ${{ matrix.cross-compiler-package }} || \
           if [ "${{ matrix.os }}" = "linux" ]; then
-            sudo apt-get -qq --no-install-recommends install libcurl4-openssl-dev:${{ matrix.arch }}
+            sudo apt-get ${APT_FLAGS} --no-install-recommends install libcurl4-openssl-dev:${{ matrix.arch }}
           fi
 
       - name: Build
