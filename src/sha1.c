@@ -173,9 +173,9 @@ void SHA1_Init (void)
 	SHA1Init(&context);
 }
 
-void SHA1_Update (char *string)
+void SHA1_Update (const char *string)
 {
-	SHA1Update(&context, (unsigned char *)string, strlen((char*)string));
+	SHA1Update(&context, (unsigned char *)string, strlen(string));
 }
 
 char *SHA1_Final(void)
