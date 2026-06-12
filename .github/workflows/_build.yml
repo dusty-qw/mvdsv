@@ -93,15 +93,37 @@ jobs:
             sudo dpkg --add-architecture ${{ matrix.arch }}
           fi
 
-          sudo apt-get ${APT_FLAGS} update
+          sudo apt-get update
 
-          sudo apt-get ${APT_FLAGS} install cmake build-essential ninja-build ${{ matrix.cross-compiler-package }} || \
+          sudo apt-get ${APT_FLAGS} install -y cmake build-essential ninja-build ${{ matrix.cross-compiler-package }}
           if [ "${{ matrix.os }}" = "linux" ]; then
-            sudo apt-get ${APT_FLAGS} --no-install-recommends install libcurl4-openssl-dev:${{ matrix.arch }}
+            sudo apt-get ${APT_FLAGS} --no-install-recommends install -y libcurl4-openssl-dev:${{ matrix.arch }}
           fi
 
       - name: Build
         run: ./build_cmake.sh ${{ matrix.target }}
+
+      - name: Validate binary
+        env:
+          BINARY: ${{ matrix.os == 'windows' && 'mvdsv.exe' || 'mvdsv' }}
+        run: |
+          TMPFILE=$(mktemp)
+          if [ "${{ matrix.os }}" = "linux" ]; then
+            echo '== Linux: Check if binary is built with curl support =='
+            readelf -d "build/${{ matrix.target }}/${BINARY}" > "${TMPFILE}"
+            grep -F 'Shared library: [libcurl.so' "${TMPFILE}" || { cat "${TMPFILE}"; exit 1; }
+          elif [ "${{ matrix.os }}" = "windows" ]; then
+            echo '== Windows: Check if .exe is a Portable Executable with MS-DOS stub =='
+            x86_64-linux-gnu-objdump -p "build/${{ matrix.target }}/${BINARY}" > "${TMPFILE}"
+            grep 'file format pei-' "${TMPFILE}" || { cat "${TMPFILE}"; exit 1; }
+          else
+            echo "I don't know what I'm building! Unknown OS."
+            exit 1
+          fi
+          if [ -n "${RUNNER_DEBUG:-}" ]; then
+            echo '== readelf/objdump output: =='
+            cat "${TMPFILE}"
+          fi
 
       - name: Create checksums
         env:
