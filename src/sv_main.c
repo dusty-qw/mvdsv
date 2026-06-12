@@ -1597,14 +1597,14 @@ int Rcon_Validate (char *client_string, char *password1)
 			}
 		}
 		SHA1_Init();
-		SHA1_Update((unsigned char*)Cmd_Argv(0));
-		SHA1_Update((unsigned char*)" ");
-		SHA1_Update((unsigned char*)password1);
-		SHA1_Update((unsigned char*)time_start);
-		SHA1_Update((unsigned char*)" ");
+		SHA1_Update(Cmd_Argv(0));
+		SHA1_Update(" ");
+		SHA1_Update(password1);
+		SHA1_Update(time_start);
+		SHA1_Update(" ");
 		for (i = 2; (int) i < Cmd_Argc(); i++) {
-			SHA1_Update((unsigned char*)Cmd_Argv(i));
-			SHA1_Update((unsigned char*)" ");
+			SHA1_Update(Cmd_Argv(i));
+			SHA1_Update(" ");
 		}
 		if (strncmp(digest, SHA1_Final(), DIGEST_SIZE * 2)) {
 			return 0;

@@ -101,7 +101,9 @@ static void SHA1Update(SHA1_CTX* context, unsigned char* data, unsigned int len)
 		SHA1Transform(context->state, context->buffer);
 		for ( ; i + 63 < len; i += 64)
 		{
-			SHA1Transform(context->state, &data[i]);
+			unsigned char block[64];
+			memcpy(block, &data[i], 64);
+			SHA1Transform(context->state, block);
 		}
 		j = 0;
 	}
@@ -171,9 +173,9 @@ void SHA1_Init (void)
 	SHA1Init(&context);
 }
 
-void SHA1_Update (char *string)
+void SHA1_Update (const char *string)
 {
-	SHA1Update(&context, (unsigned char *)string, strlen((char*)string));
+	SHA1Update(&context, (unsigned char *)string, strlen(string));
 }
 
 char *SHA1_Final(void)

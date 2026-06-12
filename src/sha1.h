@@ -58,7 +58,7 @@ typedef struct {
 //VVD: SHA1 crypt
 char *SHA1 (char *string);
 void SHA1_Init (void);
-void SHA1_Update (char* data);
+void SHA1_Update (const char* data);
 char *SHA1_Final (void);
 
 #endif /* !__SHA1_H__ */
