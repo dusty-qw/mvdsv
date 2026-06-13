@@ -127,6 +127,8 @@ endif()
 set(CFLAGS -Wall)
 set(LFLAGS)
 
+find_package(Threads REQUIRED)
+
 
 ######################################################################################################
 # Mark the executable as a non-console application
@@ -195,9 +197,7 @@ endif()
 # Assign compiler flags
 target_compile_options(${PROJECT_NAME} PRIVATE ${CFLAGS})
 
-if(NOT CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-	target_link_libraries(${PROJECT_NAME} -lpthread)
-endif()
+target_link_libraries(${PROJECT_NAME} Threads::Threads)
 
 
 ######################################################################################################
