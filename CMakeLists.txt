@@ -160,7 +160,7 @@ else()
 	target_link_libraries(${PROJECT_NAME} ws2_32)
 	target_link_libraries(${PROJECT_NAME} winmm)
 	if(NOT CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-		set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc")
+		target_link_options(${PROJECT_NAME} PRIVATE -static-libgcc)
 	endif()
 endif()
 
