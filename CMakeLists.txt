@@ -146,7 +146,6 @@ set_target_properties(${PROJECT_NAME}
 
 # Set include directories
 target_include_directories(${PROJECT_NAME} PRIVATE ${DIR_SRC}/qwprot/src)
-target_include_directories(${PROJECT_NAME} PRIVATE ${CURL_INCLUDE_DIRS})
 target_include_directories(${PROJECT_NAME} PRIVATE ${PCRE_INCLUDE_DIR})
 
 
@@ -184,7 +183,7 @@ endif()
 
 if(CURL_FOUND)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE WWW_INTEGRATION)
-	target_link_libraries(${PROJECT_NAME} ${CURL_LIBRARIES})
+	target_link_libraries(${PROJECT_NAME} CURL::libcurl)
 endif()
 
 if(PCRE_FOUND)
