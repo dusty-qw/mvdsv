@@ -127,6 +127,8 @@ endif()
 set(CFLAGS -Wall)
 set(LFLAGS)
 
+find_package(Threads REQUIRED)
+
 
 ######################################################################################################
 # Mark the executable as a non-console application
@@ -144,7 +146,6 @@ set_target_properties(${PROJECT_NAME}
 
 # Set include directories
 target_include_directories(${PROJECT_NAME} PRIVATE ${DIR_SRC}/qwprot/src)
-target_include_directories(${PROJECT_NAME} PRIVATE ${CURL_INCLUDE_DIRS})
 target_include_directories(${PROJECT_NAME} PRIVATE ${PCRE_INCLUDE_DIR})
 
 
@@ -158,7 +159,7 @@ else()
 	target_link_libraries(${PROJECT_NAME} ws2_32)
 	target_link_libraries(${PROJECT_NAME} winmm)
 	if(NOT CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-		set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc")
+		target_link_options(${PROJECT_NAME} PRIVATE -static-libgcc)
 	endif()
 endif()
 
@@ -172,9 +173,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE MVD_PEXT1_SERVERSIDEWEAPON)
 target_compile_definitions(${PROJECT_NAME} PRIVATE MVD_PEXT1_SERVERSIDEWEAPON2)
 target_compile_definitions(${PROJECT_NAME} PRIVATE FTE_PEXT2_VOICECHAT)
 
-include (TestBigEndian)
-TEST_BIG_ENDIAN(IS_BIG_ENDIAN)
-if(IS_BIG_ENDIAN)
+if(CMAKE_C_BYTE_ORDER STREQUAL "BIG_ENDIAN")
 	target_compile_definitions(${PROJECT_NAME} PRIVATE __BIG_ENDIAN__Q__)
 	message(STATUS "BIG_ENDIAN")
 else()
@@ -184,7 +183,7 @@ endif()
 
 if(CURL_FOUND)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE WWW_INTEGRATION)
-	target_link_libraries(${PROJECT_NAME} ${CURL_LIBRARIES})
+	target_link_libraries(${PROJECT_NAME} CURL::libcurl)
 endif()
 
 if(PCRE_FOUND)
@@ -197,9 +196,7 @@ endif()
 # Assign compiler flags
 target_compile_options(${PROJECT_NAME} PRIVATE ${CFLAGS})
 
-if(NOT CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-	target_link_libraries(${PROJECT_NAME} -lpthread)
-endif()
+target_link_libraries(${PROJECT_NAME} Threads::Threads)
 
 
 ######################################################################################################
