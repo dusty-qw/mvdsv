@@ -3121,14 +3121,7 @@ void SV_Voice_UnmuteAll_f(void)
 #ifdef FTE_PEXT_CSQC
 void SV_EnableClientsCSQC(void)
 {
-	size_t e;
-
 	sv_client->csqcactive = true;
-
-	//if the csqc has just restarted, its probably going to want us to resend all csqc ents from scratch because of all the setup it might do.
-	for (e = 1; e < MAX_EDICTS; e++)
-		if (sv_client->csqcentityscope[e] & SCOPE_WANTSEND)
-			sv_client->csqcentitysendflags[e] = 0xFFFFFF;
 }
 
 void SV_DisableClientsCSQC(void)

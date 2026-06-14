@@ -1209,6 +1209,16 @@ int SV_SimpleProjectileWriteFrame_CSQC(client_t *client, struct sizebuf_s *msg, 
 		end = *entnum;
 		for (; number < end; number++)
 		{
+			ed = EDICT_NUM(number);
+			/*
+			 * SetSendNeeded() and enablecsqc can schedule CSQC setup or
+			 * owner-only SendEntity updates independently of the current PVS
+			 * list. Do not erase those pending updates just because the entity
+			 * is absent from this frame's visibility walk.
+			 */
+			if (ed->xv.SendEntity && (client->csqcentityscope[number] & SCOPE_WANTUPDATE))
+				continue;
+
 			client->csqcentityscope[number] &= ~SCOPE_WANTSEND;
 			if (client->csqcentityscope[number] & SCOPE_ASSUMED_EXISTING)
 				client->csqcentityscope[number] |= SCOPE_WANTREMOVE;
@@ -1232,6 +1242,11 @@ int SV_SimpleProjectileWriteFrame_CSQC(client_t *client, struct sizebuf_s *msg, 
 	end = client->csqcnumedicts;
 	for (; number < end; number++)
 	{
+		ed = EDICT_NUM(number);
+		/* Preserve explicitly scheduled SendEntity updates outside PVS. */
+		if (ed->xv.SendEntity && (client->csqcentityscope[number] & SCOPE_WANTUPDATE))
+			continue;
+
 		client->csqcentityscope[number] &= ~SCOPE_WANTSEND;
 		if (client->csqcentityscope[number] & SCOPE_ASSUMED_EXISTING)
 			client->csqcentityscope[number] |= SCOPE_WANTREMOVE;
@@ -1276,80 +1291,88 @@ int SV_SimpleProjectileWriteFrame_CSQC(client_t *client, struct sizebuf_s *msg, 
 		}
 		else
 		{
-			// save the cursize value in case we overflow and have to rollback
-			int oldcursize = msg->cursize;
-			int oldsectionstarted = sectionstarted;
+			byte entbuf[MAX_MSGLEN];
+			sizebuf_t entmsg;
+			sizebuf_t *oldcsqcmsgbuffer;
+			int bytes_needed;
 
 			// An update.
 			sendflags = client->csqcentitysendflags[number];
 			// Nothing to send? FINE.
-
 			if (!sendflags)
 				continue;
-
-			if (!sectionstarted)
-			{
-				MSG_WriteByte(msg, svc_fte_csqcentities);
-				//MSG_WriteLong(msg, client->csqc_framenum);
-
-				sectionstarted = 1;
-			}
 
 			// If it's a new entity, always assume sendflags 0xFFFFFF.
 			if (!(client->csqcentityscope[number] & SCOPE_ASSUMED_EXISTING))
 				sendflags = 0xFFFFFF;
 
-
-
-			MSG_WriteShort(msg, (unsigned short)number);
-			msg->allowoverflow = true;
-
+			/*
+			 * Write the QC callback payload to a temporary buffer first.
+			 * SZ_GetSpace() clears an allowoverflow buffer when it overflows;
+			 * doing that directly to the packet can turn the next top-level
+			 * byte into 0 and disconnect the client with an illegible message.
+			 */
+			SZ_InitEx(&entmsg, entbuf, sizeof(entbuf), true);
+			oldcsqcmsgbuffer = csqcmsgbuffer;
+			csqcmsgbuffer = &entmsg;
 			if (!PR2_SendEntity(ed, client->edict, sendflags))
 			{
-				msg->cursize = oldcursize;
-				sectionstarted = oldsectionstarted;
-
+				csqcmsgbuffer = oldcsqcmsgbuffer;
 				client->csqcentitysendflags[number] = 0;
-				msg->allowoverflow = false;
 				continue;
 			}
+			csqcmsgbuffer = oldcsqcmsgbuffer;
 
-			msg->allowoverflow = false;
-
-			if (msg->cursize + 4 <= maxsize)
+			if (!entmsg.cursize)
 			{
-				// an update has been successfully written
+				Con_Printf("CSQC SendEntity wrote empty payload for ent %d\n", number);
 				client->csqcentitysendflags[number] = 0;
-				//db->entno[db->num] = number;
-				//db->sendflags[db->num] = sendflags;
-				//db->num += 1;
-				client->csqcentityscope[number] &= ~SCOPE_WANTSEND;
-				client->csqcentityscope[number] |= SCOPE_EXISTED_ONCE | SCOPE_ASSUMED_EXISTING;
-				db->entno[db->num] = number;
-				db->sendflags[db->num] = sendflags;
-				db->num += 1;
-
-				if (msg->cursize + 17 >= maxsize)
-					break;
 				continue;
 			}
 
+			if (entmsg.overflowed)
+			{
+				Con_Printf("CSQC SendEntity payload overflowed for ent %d\n", number);
+				break;
+			}
 
+			bytes_needed = (sectionstarted ? 0 : 1) + 2 + entmsg.cursize + 2;
+			if (msg->cursize + bytes_needed > maxsize)
+			{
+				/*
+				 * The update is too big for this packet. Leave it queued and
+				 * retry next frame so smaller later entities cannot overtake it.
+				 */
+				break;
+			}
 
-			// update was too big for this packet - rollback the buffer to its
-			// state before the writes occurred, we'll try again next frame
-			msg->cursize = oldcursize;
-			msg->overflowed = false;
+			if (!sectionstarted)
+			{
+				MSG_WriteByte(msg, svc_fte_csqcentities);
+				//MSG_WriteLong(msg, client->csqc_framenum);
+				sectionstarted = 1;
+			}
+
+			MSG_WriteShort(msg, (unsigned short)number);
+			SZ_Write(msg, entmsg.data, entmsg.cursize);
+
+			// an update has been successfully written
+			client->csqcentitysendflags[number] = 0;
+			//db->entno[db->num] = number;
+			//db->sendflags[db->num] = sendflags;
+			//db->num += 1;
+			client->csqcentityscope[number] &= ~SCOPE_WANTSEND;
+			client->csqcentityscope[number] |= SCOPE_EXISTED_ONCE | SCOPE_ASSUMED_EXISTING;
+			db->entno[db->num] = number;
+			db->sendflags[db->num] = sendflags;
+			db->num += 1;
+
+			if (msg->cursize + 17 >= maxsize)
+				break;
+			continue;
 		}
 	}
 
-
-	if (!sectionstarted)
-	{
-		sectionstarted = 1;
-		MSG_WriteByte(msg, svc_fte_csqcentities);
-		//MSG_WriteLong(msg, client->csqc_framenum);
-	}
 
 	if (sectionstarted)
 	{

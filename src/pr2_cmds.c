@@ -176,7 +176,7 @@ void PR2_CheckEmptyString(char *s)
 		PR2_RunError("Bad string");
 }
 
-void PF2_precache_sound(char *s)
+intptr_t PF2_precache_sound(char *s)
 {
 	int i;
 
@@ -190,16 +190,17 @@ void PF2_precache_sound(char *s)
 		if (!sv.sound_precache[i])
 		{
 			sv.sound_precache[i] = s;
-			return;
+			return i;
 		}
 		if (!strcmp(sv.sound_precache[i], s))
-			return;
+			return i;
 	}
 
 	PR2_RunError ("PF_precache_sound: overflow");
+	return 0;
 }
 
-void PF2_precache_model(char *s)
+intptr_t PF2_precache_model(char *s)
 {
 	int 	i;
 
@@ -214,13 +215,14 @@ void PF2_precache_model(char *s)
 		if (!sv.model_precache[i])
 		{
 			sv.model_precache[i] = s;
-			return;
+			return i;
 		}
 		if (!strcmp(sv.model_precache[i], s))
-			return;
+			return i;
 	}
 
 	PR2_RunError ("PF_precache_model: overflow");
+	return 0;
 }
 
 intptr_t PF2_precache_vwep_model(char *s)
@@ -2014,10 +2016,19 @@ intptr_t EXT_SetSendNeeded(intptr_t *args)
 	int fl = args[2];
 	unsigned int to = args[3];
 
+	if (!subject || subject >= MAX_EDICTS || !fl)
+		return 0;
+
 	if (!to)
 	{	//broadcast
 		for (to = 0; to < MAX_CLIENTS; to++)
+		{
+			if (svs.clients[to].state < cs_connected)
+				continue;
+
 			svs.clients[to].csqcentitysendflags[subject] |= fl;
+			svs.clients[to].csqcentityscope[subject] |= SCOPE_WANTUPDATE;
+		}
 	}
 
 	else
@@ -2026,7 +2037,10 @@ intptr_t EXT_SetSendNeeded(intptr_t *args)
 		if (to >= MAX_CLIENTS)
 			;	//some kind of error.
 		else
+		{
 			svs.clients[to].csqcentitysendflags[subject] |= fl;
+			svs.clients[to].csqcentityscope[subject] |= SCOPE_WANTUPDATE;
+		}
 	}
 	return 0;
 }
@@ -2618,11 +2632,9 @@ intptr_t PR2_GameSystemCalls(intptr_t *args) {
 		ED_Free(VME(1));
 		return 0;
 	case G_PRECACHE_SOUND:
-		PF2_precache_sound(VMA(1));
-		return 0;
+		return PF2_precache_sound(VMA(1));
 	case G_PRECACHE_MODEL:
-		PF2_precache_model(VMA(1));
-		return 0;
+		return PF2_precache_model(VMA(1));
 	case G_LIGHTSTYLE:
 		PF2_lightstyle(args[1], VMA(2));
 		return 0;
