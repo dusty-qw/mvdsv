@@ -72,7 +72,7 @@ typedef struct
 	int			lastcheck;			// used by PF_checkclient
 	double		lastchecktime;			// for monster ai
 
-	qbool		paused;				// are we paused?
+	int			paused;				// pause bits: 1=normal, 2=auto (single player), 3=both
 	double		pausedsince;		// Sys_DoubleTime() when pause started
 
 	qbool		loadgame;			// handle connections specially
@@ -378,7 +378,7 @@ typedef struct client_s
 	// server-side weapons extension
 	int             weaponswitch_sequence_set; // need to remember what packet current choices were sent in for forgetorder
 	qbool           weaponswitch_pending;
-	qbool           weaponswitch_hide;         // automatically flick back when not firing
+	int             weaponswitch_hide;         // 0=none, 1=hide axe, 2=hide SG
 	qbool           weaponswitch_hide_on_death;// switch back to 2 1 when dying
 	qbool           weaponswitch_wasfiring;    // fire pressed on previous frame (will only hide if so)
 
