@@ -61,6 +61,7 @@ typedef intptr_t (*ext_syscall_t)(intptr_t *arg);
 #ifdef FTE_PEXT_CSQC
 static intptr_t EXT_SetSendNeeded(intptr_t *args);
 #endif
+static intptr_t EXT_SetLastRuntime(intptr_t *args);
 static intptr_t EXT_MapExtFieldPtr(intptr_t *args);
 #ifdef MVD_PEXT1_SPRAYS
 static intptr_t EXT_SprayClear(intptr_t *args);
@@ -80,6 +81,7 @@ struct
 #ifdef FTE_PEXT_CSQC
 	{"setsendneeded",		EXT_SetSendNeeded},
 #endif
+	{"SetLastRuntime",	EXT_SetLastRuntime},
 #ifdef MVD_PEXT1_SPRAYS
 	{"sprayclear",		EXT_SprayClear},
 	{"sprayclearall",	EXT_SprayClearAll},
@@ -2045,6 +2047,19 @@ intptr_t EXT_SetSendNeeded(intptr_t *args)
 	return 0;
 }
 #endif
+
+static intptr_t EXT_SetLastRuntime(intptr_t *args)
+{
+	int entnum = (int)args[1];
+	edict_t *ent;
+
+	if (entnum <= 0 || entnum >= sv.num_edicts)
+		return 0;
+
+	ent = EDICT_NUM(entnum);
+	ent->e.lastruntime = sv.time;
+	return 0;
+}
 
 // To prevent mods from hardcoding field offsets which would cause engine incompatibilities.
 static uint32_t GetExtFieldCookie(void)
