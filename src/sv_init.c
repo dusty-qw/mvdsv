@@ -501,6 +501,15 @@ void SV_SpawnServer(char *mapname, qbool devmap, char* entityfile, qbool loading
 #ifdef MVD_PEXT1_SIMPLEPROJECTILE
 	svs.mvdprotocolextension1 |= MVD_PEXT1_SIMPLEPROJECTILE;
 #endif
+#if defined(FTE_PEXT_CSQC) && defined(MVD_PEXT1_EZCSQC)
+	// EZCSQC is an MVD payload contract carried over the broader FTE CSQC transport.
+	if (Q_atof(Cvar_String("qwm_ezcsqc")) > 0) {
+		svs.mvdprotocolextension1 |= MVD_PEXT1_EZCSQC;
+	}
+	else {
+		svs.mvdprotocolextension1 &= ~MVD_PEXT1_EZCSQC;
+	}
+#endif
 #ifdef FTE_PEXT_CSQC
 	svs.fteprotocolextensions |= FTE_PEXT_CSQC;
 #endif
