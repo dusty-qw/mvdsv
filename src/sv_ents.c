@@ -1648,20 +1648,7 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg, qbool recorder)
 				continue;
 			}
 
-			#if MVD_PEXT1_SIMPLEPROJECTILE
-			if (client->mvdprotocolextensions1 & MVD_PEXT1_SIMPLEPROJECTILE && !recorder)
-			{
-				if (SV_PrepareEntity_Sproj(ent, state, e))
-				{
-					sv.csqcsendstates[numcsqcsendstates++] = e;
-					continue;
-				}
-			}
-			#endif
-			#if defined(MVD_PEXT1_SIMPLEPROJECTILE) && defined(FTE_PEXT_CSQC)
-			else
-			#endif
-			#ifdef FTE_PEXT_CSQC
+		#ifdef FTE_PEXT_CSQC
 			if (client->csqcactive && !recorder)
 			{
 				if (SV_PrepareEntity_CSQC(ent, state, e))
@@ -1670,7 +1657,20 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg, qbool recorder)
 					continue;
 				}
 			}
-			#endif
+		#endif
+		#if defined(MVD_PEXT1_SIMPLEPROJECTILE) && defined(FTE_PEXT_CSQC)
+			else
+		#endif
+		#if MVD_PEXT1_SIMPLEPROJECTILE
+			if (client->mvdprotocolextensions1 & MVD_PEXT1_SIMPLEPROJECTILE && !recorder)
+			{
+				if (SV_PrepareEntity_Sproj(ent, state, e))
+				{
+					sv.csqcsendstates[numcsqcsendstates++] = e;
+					continue;
+				}
+			}
+		#endif
 
 			if (SV_AddNailUpdate (ent))
 				continue; // added to the special update list
@@ -1748,19 +1748,19 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg, qbool recorder)
 
 	SV_EmitPacketEntities (client, pack, msg);
 
-#ifdef MVD_PEXT1_SIMPLEPROJECTILE
-	if (client->mvdprotocolextensions1 & MVD_PEXT1_SIMPLEPROJECTILE && !recorder)
-	{
-		SV_SimpleProjectileWriteFrame_Sproj(client, msg, msg->maxsize, numcsqcsendstates, sv.csqcsendstates);
-	}
-#endif
-#if defined(MVD_PEXT1_SIMPLEPROJECTILE) && defined(FTE_PEXT_CSQC)
-	else
-#endif
 #ifdef FTE_PEXT_CSQC
 	if (client->csqcactive && !recorder)
 	{
 		SV_SimpleProjectileWriteFrame_CSQC(client, msg, msg->maxsize, numcsqcsendstates, sv.csqcsendstates);
+	}
+#endif
+#if defined(MVD_PEXT1_SIMPLEPROJECTILE) && defined(FTE_PEXT_CSQC)
+else
+#endif
+#ifdef MVD_PEXT1_SIMPLEPROJECTILE
+	if (client->mvdprotocolextensions1 & MVD_PEXT1_SIMPLEPROJECTILE && !recorder)
+	{
+		SV_SimpleProjectileWriteFrame_Sproj(client, msg, msg->maxsize, numcsqcsendstates, sv.csqcsendstates);
 	}
 #endif
 
