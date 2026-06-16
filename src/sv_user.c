@@ -397,7 +397,15 @@ static void Cmd_New_f (void)
 
 #ifdef FTE_PEXT_CSQC
 	if (sv_client->fteprotocolextensions & FTE_PEXT_CSQC) {
-		SV_ClientPrintf(sv_client, 2, "\n\nENABLING CSQC FOR YOU!\nYOU'RE WELCOME\n");
+#ifdef MVD_PEXT1_EZCSQC
+		if (sv_client->mvdprotocolextensions1 & MVD_PEXT1_EZCSQC) {
+			SV_ClientPrintf(sv_client, 2, "\n\n&c0faEZCSQC ANTILAG ENABLED!&r\n");
+		}
+		else
+#endif
+		{
+			SV_ClientPrintf(sv_client, 2, "\n\nENABLING CSQC FOR YOU!\nYOU'RE WELCOME\n");
+		}
 		sv_client->csqcactive = true;
 	}
 #endif
@@ -4525,7 +4533,6 @@ void SV_ExecuteClientMessage (client_t *cl)
 	int             checksumIndex;
 	byte            checksum, calculatedChecksum;
 	int             seq_hash;
-	int		num;
 
 #ifdef MVD_PEXT1_DEBUG
 	int             antilag_players_present = 0;
@@ -4866,7 +4873,7 @@ void SV_ExecuteClientMessage (client_t *cl)
 
 #ifdef MVD_PEXT1_SIMPLEPROJECTILE
 		case clc_ackframe:
-			num = MSG_ReadLong();
+			MSG_ReadLong();
 			break;
 #endif
 		}
