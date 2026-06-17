@@ -1183,7 +1183,12 @@ int SV_SimpleProjectileWriteFrame_CSQC(client_t *client, struct sizebuf_s *msg, 
 	const unsigned short *entnum;
 	edict_t *ed;
 
-	client->csqc_framenum = client->netchan.incoming_sequence;
+	/*
+	 * Native svc_fte_csqcentities has no on-wire frame number. Store history
+	 * under the outgoing server packet sequence because clients ack that value
+	 * back through netchan.incoming_acknowledged.
+	 */
+	client->csqc_framenum = client->netchan.outgoing_sequence;
 	int dbframe = EntityFrameCSQC_AllocFrame(client, client->csqc_framenum);
 	csqcentityframedb_t *db = &client->csqcentityframehistory[dbframe];
 	if (client->csqcentityframe_lastreset < 0)
@@ -1405,7 +1410,7 @@ int SV_PrepareEntity_CSQC(edict_t *ent, entity_state_t *cs, int enumber)
 
 
 #if defined(MVD_PEXT1_SIMPLEPROJECTILE) || defined(FTE_PEXT_CSQC)
-void EntityFrameCSQC_LostFrame(client_t *client, int framenum)
+void EntityFrameCSQC_LostFrame(client_t *client, int framenum, int latest_received_framenum)
 {
 	// marks a frame as lost
 	int i, j;
@@ -1469,6 +1474,15 @@ void EntityFrameCSQC_LostFrame(client_t *client, int framenum)
 		{
 			// deleted frame
 		}
+		else if (d->framenum > latest_received_framenum)
+		{
+			/*
+			 * Only suppress resend bits using frames the client has actually
+			 * acknowledged. Later unacked frames may be lost too, which is
+			 * exactly what happens to startup weapondefs under artificial lag.
+			 */
+			continue;
+		}
 		else if (d->framenum < framenum)
 		{
 			// a frame in the past... should never happen
@@ -1508,9 +1522,12 @@ void EntityFrameCSQC_LostFrame(client_t *client, int framenum)
 	for (i = 0; i < client->csqcnumedicts; ++i)
 	{
 		if (recoversendflags[i] < 0)
-			client->csqcentityscope[i] |= SCOPE_ASSUMED_EXISTING;  // FORCE REMOVE.
-		else
+			client->csqcentityscope[i] |= SCOPE_ASSUMED_EXISTING | SCOPE_WANTREMOVE;  // FORCE REMOVE.
+		else if (recoversendflags[i] > 0)
+		{
 			client->csqcentitysendflags[i] |= recoversendflags[i];
+			client->csqcentityscope[i] |= SCOPE_WANTUPDATE;
+		}
 	}
 }
 #endif

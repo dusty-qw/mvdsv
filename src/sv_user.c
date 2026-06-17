@@ -26,7 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 static void SV_ClientDownloadComplete(client_t* cl);
 
 #ifdef MVD_PEXT1_SIMPLEPROJECTILE
-extern void EntityFrameCSQC_LostFrame(client_t *client, int framenum);
+extern void EntityFrameCSQC_LostFrame(client_t *client, int framenum, int latest_received_framenum);
 #endif
 
 edict_t	*sv_player;
@@ -3576,11 +3576,11 @@ void SV_PreRunCmd(void)
 CSQC Stuff, for now just SimpleProjectiles
 ===========
 */
-qbool SV_FrameLost(int framenum)
+qbool SV_FrameLost(int framenum, int latest_received_framenum)
 {
 	if (framenum <= sv_client->csqc_framenum)
 	{
-		EntityFrameCSQC_LostFrame(sv_client, framenum);
+		EntityFrameCSQC_LostFrame(sv_client, framenum, latest_received_framenum);
 		return true;
 	}
 
@@ -4642,7 +4642,7 @@ void SV_ExecuteClientMessage (client_t *cl)
 #if defined(MVD_PEXT1_SIMPLEPROJECTILE) || defined(FTE_PEXT_CSQC)
 	for (i = sv_client->csqc_latestverified + 1; i < cl->netchan.incoming_acknowledged; i++)
 	{
-		if (!SV_FrameLost(i))
+		if (!SV_FrameLost(i, cl->netchan.incoming_acknowledged))
 			break;
 	}
 	sv_client->csqc_latestverified = cl->netchan.incoming_acknowledged;
