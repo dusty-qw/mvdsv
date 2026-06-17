@@ -1631,6 +1631,10 @@ void PF2_infokey(int e1, char *key, char *valbuff, int sizebuff)
 		{
 			snprintf(ov, sizeof(ov), "%d", (int)cl->csqcactive);
 		}
+		else if (!strcmp(key, "ezcsqc_ready"))
+		{
+			snprintf(ov, sizeof(ov), "%d", (int)cl->ezcsqc_ready);
+		}
 #endif
 		else if (!strcmp(key, "*userid"))
 			snprintf(ov, sizeof(ov), "%d", cl->userid);

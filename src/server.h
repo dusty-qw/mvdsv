@@ -394,6 +394,7 @@ typedef struct client_s
 #if defined(MVD_PEXT1_SIMPLEPROJECTILE) || defined(FTE_PEXT_CSQC)
 	// CSQC stuff, we don't have full CSQC yet but they are used for simpleprojectiles
 	int csqcactive;
+	int ezcsqc_ready;
 	int csqc_framenum;
 	int csqc_latestverified;
 	int csqcnumedicts;

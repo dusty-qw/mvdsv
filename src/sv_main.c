@@ -442,6 +442,7 @@ void SV_DropClient(client_t* drop)
 
 #ifdef FTE_PEXT_CSQC
 	drop->csqcactive = false;
+	drop->ezcsqc_ready = false;
 #endif
 
 	Info_RemoveAll(&drop->_userinfo_ctx_);
