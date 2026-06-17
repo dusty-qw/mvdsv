@@ -399,7 +399,7 @@ static void Cmd_New_f (void)
 	if (sv_client->fteprotocolextensions & FTE_PEXT_CSQC) {
 #ifdef MVD_PEXT1_EZCSQC
 		if (sv_client->mvdprotocolextensions1 & MVD_PEXT1_EZCSQC) {
-			SV_ClientPrintf(sv_client, 2, "\n\n&c0faEZCSQC ANTILAG ENABLED!&r\n");
+		//	SV_ClientPrintf(sv_client, 2, "\n\n&c0faEZCSQC ANTILAG PENDING SETUP...&r\n");
 		}
 		else
 #endif
@@ -1014,6 +1014,29 @@ static void Cmd_Begin_f (void)
 		pr_global_struct->time = sv.time;
 		pr_global_struct->self = EDICT_TO_PROG(sv_player);
 		PR_GamePutClientInServer(sv_client->spectator);
+
+		if (sv_player->v->fixangle)
+		{
+			/*
+			 * The normal datagram fixangle path is unreliable. Send spawn
+			 * angles reliably too, so losing the first gameplay packet cannot
+			 * leave the client facing a stale/default direction.
+			 */
+			ClientReliableWrite_Begin(sv_client, svc_setangle, 6);
+#ifdef MVD_PEXT1_HIGHLAGTELEPORT
+			if (sv_client->mvdprotocolextensions1 & MVD_PEXT1_HIGHLAGTELEPORT) {
+				ClientReliableWrite_Byte(sv_client, 2); // respawn
+				sv_client->lastteleport_teleport = 0;
+				sv_client->lastteleport_outgoingseq = sv_client->netchan.outgoing_sequence;
+				sv_client->lastteleport_incomingseq = sv_client->netchan.incoming_sequence;
+				sv_client->lastteleport_teleportyaw = sv_player->v->angles[YAW] - sv_client->lastcmd.angles[YAW];
+			}
+#endif
+			for (i = 0; i < 3; i++) {
+				ClientReliableWrite_Angle(sv_client, sv_player->v->angles[i]);
+			}
+			sv_player->v->fixangle = 0;
+		}
 	}
 
 	// clear the net statistics, because connecting gives a bogus picture
@@ -3141,11 +3164,27 @@ void SV_Voice_UnmuteAll_f(void)
 void SV_EnableClientsCSQC(void)
 {
 	sv_client->csqcactive = true;
+	sv_client->ezcsqc_ready = false;
 }
 
 void SV_DisableClientsCSQC(void)
 {
 	sv_client->csqcactive = false;
+	sv_client->ezcsqc_ready = false;
+}
+
+void SV_EZCSQCReady_f(void)
+{
+	if (sv_client->csqcactive
+#ifdef MVD_PEXT1_EZCSQC
+		&& (sv_client->mvdprotocolextensions1 & MVD_PEXT1_EZCSQC)
+#endif
+	) {
+		if (!sv_client->ezcsqc_ready) {
+			SV_ClientPrintf(sv_client, 2, "\nEZCSQC Antilag ready\n");
+		}
+		sv_client->ezcsqc_ready = true;
+	}
 }
 #endif
 
@@ -3403,6 +3442,7 @@ static ucmd_t ucmds[] =
 #ifdef FTE_PEXT_CSQC
 	{"enablecsqc",	SV_EnableClientsCSQC, false},
 	{"disablecsqc",	SV_DisableClientsCSQC, false},
+	{"ezcsqc_ready", SV_EZCSQCReady_f, false},
 #endif
 
 	{"pext", Cmd_PEXT_f, false}, // user reply with supported protocol extensions.
