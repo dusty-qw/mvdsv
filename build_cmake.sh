@@ -9,11 +9,12 @@ BUILDDIR="${BUILDDIR:-build}" # Default build dir.
 # Define target platforms, feel free to comment out if you does not require some of it,
 # or you can call this script with plaforms list you willing to build on the command line.
 DEFAULT_PLATFORMS=(
-	freebsd-amd64
 	linux-amd64
-	linux-arm64
+	linux-aarch64
 	linux-armhf
-	windows-amd64
+	linux-i686
+	windows-x64
+	windows-x86
 )
 PLATFORMS=("${@:-${DEFAULT_PLATFORMS[@]}}")
 
