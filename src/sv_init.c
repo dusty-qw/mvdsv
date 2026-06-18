@@ -505,9 +505,11 @@ void SV_SpawnServer(char *mapname, qbool devmap, char* entityfile, qbool loading
 	// EZCSQC is an MVD payload contract carried over the broader FTE CSQC transport.
 	if (Q_atof(Cvar_String("qwm_ezcsqc")) > 0) {
 		svs.mvdprotocolextension1 |= MVD_PEXT1_EZCSQC;
+		Info_SetValueForKey(svs.info, "ezcsqc", "1", MAX_SERVERINFO_STRING);
 	}
 	else {
 		svs.mvdprotocolextension1 &= ~MVD_PEXT1_EZCSQC;
+		Info_SetValueForKey(svs.info, "ezcsqc", "", MAX_SERVERINFO_STRING);
 	}
 #endif
 #ifdef FTE_PEXT_CSQC
