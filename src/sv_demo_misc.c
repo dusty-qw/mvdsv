@@ -28,6 +28,39 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define MAX_DEMOINFO_SIZE (1024 * 200)
 static char chartbl[256];
 
+void SV_MVDEmbedStartTimestamp(void)
+{
+	mvdhidden_block_header_t header;
+	uint64_t v;
+	byte buf[10];
+	int len = 0;
+
+	if (!sv.mvdrecording) {
+		return;
+	}
+
+	// ULE128-encode the millisecond timestamp: 7 data bits per byte, MSB set
+	// on every byte except the last. Aligns with the remaster's variable-length
+	// int convention and extends gracefully past 64 bits.
+	v = Sys_TimestampMilliseconds();
+	while (v >= 0x80) {
+		buf[len++] = (byte)((v & 0x7F) | 0x80);
+		v >>= 7;
+	}
+	buf[len++] = (byte)v;
+
+	header.length = LittleLong(len);
+	header.type_id = LittleShort(mvdhidden_demo_start_timestamp_ms);
+
+	if (!MVDWrite_HiddenBlockBegin(sizeof(header.length) + sizeof(header.type_id) + len)) {
+		return;
+	}
+
+	MVD_SZ_Write(&header.length, sizeof(header.length));
+	MVD_SZ_Write(&header.type_id, sizeof(header.type_id));
+	MVD_SZ_Write(buf, len);
+}
+
 /*
 ====================
 CleanName_Init

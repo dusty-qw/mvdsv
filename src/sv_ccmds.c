@@ -610,6 +610,7 @@ void SV_RemoveDirectory_f (void)
 	SV_ReplaceChar(dirname, '\\', '/');
 
 	if (	!strncmp(dirname, "../", 3) || strstr(dirname, "/../") || *dirname == '/'
+	        ||	!strncmp(dirname, "..", 3)
 #ifdef _WIN32
 	        ||	( dirname[1] == ':' && ((*dirname >= 'a' && *dirname <= 'z') ||
 	                                   (*dirname >= 'A' && *dirname <= 'Z'))
@@ -651,6 +652,7 @@ void SV_RemoveFile_f (void)
 	if (	!strncmp(dirname, "../", 3) || strstr(dirname, "/../")
 	        ||	*dirname == '/'             || strchr(filename, '/')
 	        ||	( (i = strlen(filename)) < 3 ? 0 : !strncmp(filename + i - 3, "/..", 4) )
+	        ||	!strncmp(dirname, "..", 3)
 #ifdef _WIN32
 	        ||	( dirname[1] == ':' && ((*dirname >= 'a' && *dirname <= 'z') ||
 	                                   (*dirname >= 'A' && *dirname <= 'Z'))

@@ -36,6 +36,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define MAX_DIRFILES 4096
 #define MAX_DEMO_NAME 196
 #include "q_platform.h"
+#include <stdint.h> // uint64_t for Sys_TimestampMilliseconds prototype below; mingw cross-compile doesn't transitively get this the way glibc does.
 
 typedef struct
 {
@@ -75,6 +76,8 @@ void Sys_Printf (char *fmt, ...); // send text to the console
 void Sys_Quit (qbool restart);
 
 double Sys_DoubleTime (void);
+
+uint64_t Sys_TimestampMilliseconds (void);
 
 char *Sys_ConsoleInput (void);
 

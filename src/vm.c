@@ -201,9 +201,6 @@ cvar_t	vm_rtChecks		= { "vm_rtChecks", "1"};
 
 int		vm_debugLevel;
 
-// used by SV_Error to get rid of running vm's before longjmp
-static int forced_unload;
-
 struct vm_s	vmTable[ VM_COUNT ];
 void VM_VmInfo_f( void );
 void VM_VmProfile_f( void );
@@ -434,7 +431,7 @@ void VM_LoadSymbols( vm_t *vm ) {
 		char	*c;
 		void	*v;
 	} mapfile;
-	char *text_p;
+	const char *text_p;
 	//char	name[MAX_QPATH];
 	char	symbols[MAX_QPATH];
 	vmSymbol_t	**prev, *sym;
@@ -1352,15 +1349,6 @@ void VM_Free( vm_t *vm ) {
 	if( !vm ) {
 		return;
 	}
-
-/*	if ( vm->callLevel ) {
-		if ( !forced_unload ) {
-			SV_Error( ERR_FATAL, "VM_Free(%s) on running vm", vm->name );
-			return;
-		} else {
-			Con_Printf( "forcefully unloading %s vm\n", vm->name );
-		}
-	}*/
 
 	if ( vm->destroy )
 		vm->destroy( vm );

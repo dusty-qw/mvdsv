@@ -72,7 +72,7 @@ typedef struct
 	int			lastcheck;			// used by PF_checkclient
 	double		lastchecktime;			// for monster ai
 
-	qbool		paused;				// are we paused?
+	int			paused;				// pause bits: 1=normal, 2=auto (single player), 3=both
 	double		pausedsince;		// Sys_DoubleTime() when pause started
 
 	qbool		loadgame;			// handle connections specially
@@ -411,7 +411,7 @@ typedef struct client_s
 	// server-side weapons extension
 	int             weaponswitch_sequence_set; // need to remember what packet current choices were sent in for forgetorder
 	qbool           weaponswitch_pending;
-	qbool           weaponswitch_hide;         // automatically flick back when not firing
+	int             weaponswitch_hide;         // 0=none, 1=hide axe, 2=hide SG
 	qbool           weaponswitch_hide_on_death;// switch back to 2 1 when dying
 	qbool           weaponswitch_wasfiring;    // fire pressed on previous frame (will only hide if so)
 
@@ -636,7 +636,7 @@ typedef struct
 	socket_t		socketip;		// main server UDP socket.
 
 // TCPCONNECT -->
-	int				sockettcp;		// server TCP socket, used for QTV/TCPCONNECT.
+	socket_t		sockettcp;		// server TCP socket, used for QTV/TCPCONNECT.
 	svtcpstream_t *	tcpstreams;
 // <-- TCPCONNECT
 
@@ -1078,6 +1078,7 @@ void	SV_MVDInfo_f (void);
 void	SV_LastScores_f (void);
 char*   SV_MVDName2Txt (const char *name);
 void SV_MVDEmbedInfo_f(void);
+void SV_MVDEmbedStartTimestamp(void);
 
 //
 // sv_demo_qtv.c

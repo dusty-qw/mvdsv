@@ -216,7 +216,7 @@ int Sys_EnumerateFiles (char *gpath, char *match, int (*func)(char *, int, void 
 		gpath = "";
 	*apath = '\0';
 
-	strncpy(apath, match, sizeof(apath));
+	strlcpy(apath, match, sizeof(apath));
 	for (s = apath+strlen(apath)-1; s >= apath; s--)
 	{
 		if (*s == '/')
@@ -394,6 +394,21 @@ double Sys_DoubleTime(void)
 	return (tp.tv_sec - secbase) + tp.tv_usec / 1000000.0;
 }
 #endif
+
+/*
+================
+Sys_TimestampMilliseconds
+================
+*/
+uint64_t Sys_TimestampMilliseconds(void)
+{
+	struct timeval tv;
+
+	gettimeofday(&tv, NULL);
+
+	return (uint64_t)tv.tv_sec * 1000ULL + (uint64_t)tv.tv_usec / 1000ULL;
+}
+
 /*
 ================
 Sys_ConsoleInput
@@ -436,10 +451,9 @@ Sys_Printf
 void Sys_Printf (char *fmt, ...)
 {
 	va_list     argptr;
-	char        text[4096], line[4096];
+	char        text[4096];
 	char*       startpos;
 	char*       endpos;
-	int         len;
 	date_t      date;
 
 	va_start (argptr,fmt);

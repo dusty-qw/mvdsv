@@ -1142,7 +1142,7 @@ intptr_t PF2_Find(int e, int fofs, char *str)
 		if (ed->e.free)
 			continue;
 
-		if (!(intptr_t *)((byte *)ed->v + fofs))
+		if (!*(intptr_t *)((byte *)ed->v + fofs))
 			continue;
 
 		t = VM_ArgPtr(*(intptr_t *)((char *)ed->v + fofs));

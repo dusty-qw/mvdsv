@@ -207,7 +207,7 @@ int NET_UDPSVPort (void)
 	return ntohs(net_local_sv_ipadr.port);
 }
 
-int NET_GetSocket(netsrc_t netsrc, qbool tcp)
+socket_t NET_GetSocket(netsrc_t netsrc, qbool tcp)
 {
 	if (netsrc == NS_SERVER)
 	{
@@ -971,7 +971,7 @@ void NET_SendPacket (netsrc_t netsrc, int length, void *data, netadr_t to)
 
 //=============================================================================
 
-qbool TCP_Set_KEEPALIVE(int sock)
+qbool TCP_Set_KEEPALIVE(socket_t sock)
 {
 	int		iOptVal = 1;
 
@@ -1024,10 +1024,10 @@ qbool TCP_Set_KEEPALIVE(int sock)
 	return true;
 }
 
-int TCP_OpenStream (netadr_t remoteaddr)
+socket_t TCP_OpenStream (netadr_t remoteaddr)
 {
 	unsigned long _true = true;
-	int newsocket;
+	socket_t newsocket;
 	int temp;
 	struct sockaddr_storage qs;
 
@@ -1066,9 +1066,9 @@ int TCP_OpenStream (netadr_t remoteaddr)
 	return newsocket;
 }
 
-int TCP_OpenListenSocket (unsigned short int port)
+socket_t TCP_OpenListenSocket (unsigned short int port)
 {
-	int newsocket;
+	socket_t newsocket;
 	struct sockaddr_in address = {0};
 	unsigned long nonblocking = true;
 	int i;
@@ -1131,9 +1131,9 @@ int TCP_OpenListenSocket (unsigned short int port)
 	return newsocket;
 }
 
-int UDP_OpenSocket (unsigned short int port)
+socket_t UDP_OpenSocket (unsigned short int port)
 {
-	int newsocket;
+	socket_t newsocket;
 	struct sockaddr_in address;
 	unsigned long _true = true;
 	int i;

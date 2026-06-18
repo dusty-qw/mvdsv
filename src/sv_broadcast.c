@@ -379,7 +379,7 @@ qbool SV_Broadcast(char *message)
 	if (broadcast_in_progress)
 	{
 		SV_ClientPrintf(sv_client, PRINT_HIGH, "A broadcast is already in progress\n");
-		Sys_MutexUnlock(&servers_update_lock);
+		Sys_MutexUnlock(&broadcast_lock);
 		return false;
 	}
 
