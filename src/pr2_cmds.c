@@ -1195,6 +1195,12 @@ MESSAGE WRITING
 #ifdef FTE_PEXT_CSQC
 #define	MSG_CSQC		5		// for csqc
 #endif
+#define MSG_ONE_NORECORD 6		// reliable to one, excluded from MVD
+
+static qbool PF2_IsReliableOne(int dest)
+{
+	return dest == MSG_ONE || dest == MSG_ONE_NORECORD;
+}
 
 
 sizebuf_t *WriteDest2(int dest)
@@ -1256,12 +1262,12 @@ static client_t *Write_GetClient(void)
 
 void PF2_WriteByte(int to, int data)
 {
-	if (to == MSG_ONE)
+	if (PF2_IsReliableOne(to))
 	{
 		client_t *cl = Write_GetClient();
 		ClientReliableCheckBlock(cl, 1);
 		ClientReliableWrite_Byte(cl, data);
-		if (sv.mvdrecording)
+		if (to == MSG_ONE && sv.mvdrecording)
 		{
 			if (MVDWrite_Begin(dem_single, cl - svs.clients, 1))
 			{
@@ -1275,12 +1281,12 @@ void PF2_WriteByte(int to, int data)
 
 void PF2_WriteChar(int to, int data)
 {
-	if (to == MSG_ONE)
+	if (PF2_IsReliableOne(to))
 	{
 		client_t *cl = Write_GetClient();
 		ClientReliableCheckBlock(cl, 1);
 		ClientReliableWrite_Char(cl, data);
-		if (sv.mvdrecording)
+		if (to == MSG_ONE && sv.mvdrecording)
 		{
 			if (MVDWrite_Begin(dem_single, cl - svs.clients, 1))
 			{
@@ -1294,12 +1300,12 @@ void PF2_WriteChar(int to, int data)
 
 void PF2_WriteShort(int to, int data)
 {
-	if (to == MSG_ONE)
+	if (PF2_IsReliableOne(to))
 	{
 		client_t *cl = Write_GetClient();
 		ClientReliableCheckBlock(cl, 2);
 		ClientReliableWrite_Short(cl, data);
-		if (sv.mvdrecording)
+		if (to == MSG_ONE && sv.mvdrecording)
 		{
 			if (MVDWrite_Begin(dem_single, cl - svs.clients, 2))
 			{
@@ -1313,12 +1319,12 @@ void PF2_WriteShort(int to, int data)
 
 void PF2_WriteLong(int to, int data)
 {
-	if (to == MSG_ONE)
+	if (PF2_IsReliableOne(to))
 	{
 		client_t *cl = Write_GetClient();
 		ClientReliableCheckBlock(cl, 4);
 		ClientReliableWrite_Long(cl, data);
-		if (sv.mvdrecording)
+		if (to == MSG_ONE && sv.mvdrecording)
 		{
 			if (MVDWrite_Begin(dem_single, cl - svs.clients, 4))
 			{
@@ -1332,7 +1338,7 @@ void PF2_WriteLong(int to, int data)
 
 void PF2_WriteAngle(int to, float data)
 {
-	if (to == MSG_ONE)
+	if (PF2_IsReliableOne(to))
 	{
 #ifdef FTE_PEXT_FLOATCOORDS
 		int size = msg_anglesize;
@@ -1342,7 +1348,7 @@ void PF2_WriteAngle(int to, float data)
 		client_t *cl = Write_GetClient();
 		ClientReliableCheckBlock(cl, size);
 		ClientReliableWrite_Angle(cl, data);
-		if (sv.mvdrecording)
+		if (to == MSG_ONE && sv.mvdrecording)
 		{
 			if (MVDWrite_Begin(dem_single, cl - svs.clients, size))
 			{
@@ -1356,7 +1362,7 @@ void PF2_WriteAngle(int to, float data)
 
 void PF2_WriteCoord(int to, float data)
 {
-	if (to == MSG_ONE)
+	if (PF2_IsReliableOne(to))
 	{
 #ifdef FTE_PEXT_FLOATCOORDS
 		int size = msg_coordsize;
@@ -1366,7 +1372,7 @@ void PF2_WriteCoord(int to, float data)
 		client_t *cl = Write_GetClient();
 		ClientReliableCheckBlock(cl, size);
 		ClientReliableWrite_Coord(cl, data);
-		if (sv.mvdrecording)
+		if (to == MSG_ONE && sv.mvdrecording)
 		{
 			if (MVDWrite_Begin(dem_single, cl - svs.clients, size))
 			{
@@ -1380,12 +1386,12 @@ void PF2_WriteCoord(int to, float data)
 
 void PF2_WriteString(int to, char *data)
 {
-	if (to == MSG_ONE)
+	if (PF2_IsReliableOne(to))
 	{
 		client_t *cl = Write_GetClient();
 		ClientReliableCheckBlock(cl, 1 + strlen(data));
 		ClientReliableWrite_String(cl, data);
-		if (sv.mvdrecording)
+		if (to == MSG_ONE && sv.mvdrecording)
 		{
 			if (MVDWrite_Begin(dem_single, cl - svs.clients, 1 + strlen(data)))
 			{
@@ -1399,12 +1405,12 @@ void PF2_WriteString(int to, char *data)
 
 void PF2_WriteEntity(int to, int data)
 {
-	if (to == MSG_ONE)
+	if (PF2_IsReliableOne(to))
 	{
 		client_t *cl = Write_GetClient();
 		ClientReliableCheckBlock(cl, 2);
 		ClientReliableWrite_Short(cl,data );//G_EDICTNUM(OFS_PARM1)
-		if (sv.mvdrecording)
+		if (to == MSG_ONE && sv.mvdrecording)
 		{
 			if (MVDWrite_Begin(dem_single, cl - svs.clients, 2))
 			{
