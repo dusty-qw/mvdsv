@@ -1666,7 +1666,7 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg, qbool recorder)
 			}
 
 		#ifdef FTE_PEXT_CSQC
-			if (client->csqcactive && !recorder)
+			if (SV_ClientSupportsEZCSQC(client) && !recorder)
 			{
 				if (SV_PrepareEntity_CSQC(ent, state, e))
 				{
@@ -1766,7 +1766,7 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg, qbool recorder)
 	SV_EmitPacketEntities (client, pack, msg);
 
 #ifdef FTE_PEXT_CSQC
-	if (client->csqcactive && !recorder)
+	if (SV_ClientSupportsEZCSQC(client) && !recorder)
 	{
 		SV_SimpleProjectileWriteFrame_CSQC(client, msg, msg->maxsize, numcsqcsendstates, sv.csqcsendstates);
 	}

@@ -433,6 +433,15 @@ typedef struct client_s
 	} safestrafe;
 } client_t;
 
+static inline qbool SV_ClientSupportsEZCSQC(const client_t *client)
+{
+#if defined(FTE_PEXT_CSQC) && defined(MVD_PEXT1_EZCSQC)
+	return client->csqcactive && (client->mvdprotocolextensions1 & MVD_PEXT1_EZCSQC);
+#else
+	return false;
+#endif
+}
+
 // a client can leave the server in one of four ways:
 // dropping properly by quiting or disconnecting
 // timing out if no valid messages are received for timeout.value seconds
