@@ -1135,7 +1135,7 @@ int SV_SimpleProjectileWriteFrame_Sproj(client_t *client, struct sizebuf_s *msg,
 int SV_PrepareEntity_Sproj(edict_t *ent, entity_state_t *cs, int enumber)
 {
 	//unsigned int sendentity;
-	unsigned int sendflags;
+	unsigned int sendflags = 0;
 	int i;
 
 	if (ent->v->movetype != MOVETYPE_FLYMISSILE)
@@ -1167,6 +1167,9 @@ int SV_PrepareEntity_Sproj(edict_t *ent, entity_state_t *cs, int enumber)
 				sendflags |= U_ORIGIN3;
 		}
 	}
+
+	if (!sendflags)
+		return false;
 
 	for (i = 0; i < MAX_CLIENTS; i++)
 		svs.clients[i].csqcentitysendflags[enumber] |= sendflags;
