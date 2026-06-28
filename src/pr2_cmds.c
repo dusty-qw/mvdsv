@@ -2039,7 +2039,7 @@ intptr_t EXT_SetSendNeeded(intptr_t *args)
 	{	//broadcast
 		for (to = 0; to < MAX_CLIENTS; to++)
 		{
-			if (svs.clients[to].state < cs_connected)
+			if (svs.clients[to].state < cs_connected || !SV_ClientSupportsEZCSQC(&svs.clients[to]))
 				continue;
 
 			svs.clients[to].csqcentitysendflags[subject] |= fl;
@@ -2052,7 +2052,7 @@ intptr_t EXT_SetSendNeeded(intptr_t *args)
 		to--;
 		if (to >= MAX_CLIENTS)
 			;	//some kind of error.
-		else
+		else if (SV_ClientSupportsEZCSQC(&svs.clients[to]))
 		{
 			svs.clients[to].csqcentitysendflags[subject] |= fl;
 			svs.clients[to].csqcentityscope[subject] |= SCOPE_WANTUPDATE;

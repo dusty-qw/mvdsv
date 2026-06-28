@@ -1132,7 +1132,7 @@ int SV_SimpleProjectileWriteFrame_Sproj(client_t *client, struct sizebuf_s *msg,
 	return sectionstarted;
 }
 
-int SV_PrepareEntity_Sproj(edict_t *ent, entity_state_t *cs, int enumber)
+int SV_PrepareEntity_Sproj(client_t *client, edict_t *ent, entity_state_t *cs, int enumber)
 {
 	//unsigned int sendentity;
 	unsigned int sendflags = 0;
@@ -1168,13 +1168,17 @@ int SV_PrepareEntity_Sproj(edict_t *ent, entity_state_t *cs, int enumber)
 		}
 	}
 
-	if (!sendflags)
-		return false;
+	if (sendflags)
+	{
+		for (i = 0; i < MAX_CLIENTS; i++)
+		{
+			client_t *target = &svs.clients[i];
+			if ((target->mvdprotocolextensions1 & MVD_PEXT1_SIMPLEPROJECTILE) && !SV_ClientSupportsEZCSQC(target))
+				target->csqcentitysendflags[enumber] |= sendflags;
+		}
+	}
 
-	for (i = 0; i < MAX_CLIENTS; i++)
-		svs.clients[i].csqcentitysendflags[enumber] |= sendflags;
-
-	return true;
+	return client->csqcentitysendflags[enumber] != 0;
 }
 #endif
 
@@ -1684,7 +1688,7 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg, qbool recorder)
 		#if MVD_PEXT1_SIMPLEPROJECTILE
 			if (client->mvdprotocolextensions1 & MVD_PEXT1_SIMPLEPROJECTILE && !recorder)
 			{
-				if (SV_PrepareEntity_Sproj(ent, state, e))
+				if (SV_PrepareEntity_Sproj(client, ent, state, e))
 				{
 					sv.csqcsendstates[numcsqcsendstates++] = e;
 					continue;
