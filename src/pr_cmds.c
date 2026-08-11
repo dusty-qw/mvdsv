@@ -2303,12 +2303,14 @@ PF_changelevel
 void PF_changelevel (void)
 {
 	char	*s;
-	static	int	last_spawncount;
+	static	double	last_changelevel_time = -1;
 
-	// make sure we don't issue two changelevels
-	if (svs.spawncount == last_spawncount)
+	// Suppress duplicate requests from the same game frame.  Do not key this to
+	// spawncount: if the queued map command is lost or rejected, spawncount does
+	// not advance and all later changelevel requests would be blocked forever.
+	if (curtime == last_changelevel_time)
 		return;
-	last_spawncount = svs.spawncount;
+	last_changelevel_time = curtime;
 
 	s = G_STRING(OFS_PARM0);
 	Cbuf_AddText (va("map %s\n",s));

@@ -1525,7 +1525,7 @@ PF2_changelevel
 */
 void PF2_changelevel(char *s, char *entfile)
 {
-	static int last_spawncount;
+	static double last_changelevel_time = -1;
 	char expanded[MAX_QPATH];
 
 	if (gamedata.APIversion < 15)
@@ -1540,11 +1540,12 @@ void PF2_changelevel(char *s, char *entfile)
 		return;
 	}
 
-	// make sure we don't issue two changelevels
-	// this check is evil and cause lock on one map, if /map command fail for some reason
-	if (svs.spawncount == last_spawncount)
+	// Suppress duplicate requests from the same game frame.  Do not key this to
+	// spawncount: if the queued map command is lost or rejected, spawncount does
+	// not advance and all later changelevel requests would be blocked forever.
+	if (curtime == last_changelevel_time)
 		return;
-	last_spawncount = svs.spawncount;
+	last_changelevel_time = curtime;
 
 	if (entfile && *entfile) {
 		Cbuf_AddTextEx(&cbuf_server, va("map %s %s\n", s, entfile));
