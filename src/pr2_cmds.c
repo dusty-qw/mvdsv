@@ -87,6 +87,7 @@ typedef intptr_t (*ext_syscall_t)(intptr_t *arg);
 static intptr_t EXT_SetSendNeeded(intptr_t *args);
 #endif
 static intptr_t EXT_SetLastRuntime(intptr_t *args);
+static intptr_t EXT_ClientReliableCheckBlock(intptr_t *args);
 static intptr_t EXT_MapExtFieldPtr(intptr_t *args);
 #ifdef MVD_PEXT1_SPRAYS
 static intptr_t EXT_SprayClear(intptr_t *args);
@@ -107,6 +108,7 @@ struct
 	{"setsendneeded",		EXT_SetSendNeeded},
 #endif
 	{"SetLastRuntime",	EXT_SetLastRuntime},
+	{"ClientReliableCheckBlock", EXT_ClientReliableCheckBlock},
 #ifdef MVD_PEXT1_SPRAYS
 	{"sprayclear",		EXT_SprayClear},
 	{"sprayclearall",	EXT_SprayClearAll},
@@ -1285,6 +1287,22 @@ static client_t *Write_GetClient(void)
 	if (entnum < 1 || entnum > MAX_CLIENTS)
 		PR2_RunError("WriteDest: not a client");
 	return &svs.clients[entnum - 1];
+}
+
+/* Reserve a complete MSG_ONE/MSG_ONE_NORECORD message before its first write.
+ * Per-field checks alone can split a service message between reliable packets.
+ */
+static intptr_t EXT_ClientReliableCheckBlock(intptr_t *args)
+{
+	client_t *cl = Write_GetClient();
+
+	// ClientReliableCheckBlock keeps one spare byte in each reliable buffer.
+	if (args[1] <= 0 || args[1] >= cl->netchan.message.maxsize
+		|| cl->netchan.message.overflowed)
+		return false;
+
+	ClientReliableCheckBlock(cl, (int)args[1]);
+	return !cl->netchan.message.overflowed;
 }
 
 void PF2_WriteByte(int to, int data)
