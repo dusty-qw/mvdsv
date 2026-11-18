@@ -695,6 +695,7 @@ typedef struct
 	qbool			fixangle[MAX_CLIENTS];
 
 	int				stats[MAX_CLIENTS][MAX_CL_STATS];
+	qbool			resend_player_stats[MAX_CLIENTS]; // A new occupant or role needs full HUD stats.
 
 #ifdef FTE_PEXT_CSQC
 	float			statsf[MAX_CLIENTS][MAX_CL_STATS];
@@ -1198,6 +1199,7 @@ void MVD_MSG_WriteCoord  (const float f);
 void MVD_MSG_WriteAngle  (const float f);
 void MVD_SZ_Write        (const void *data, int length);
 
+void MVD_PlayerReset(int player);
 qbool MVDWrite_Begin(byte type, int to, int size);
 qbool MVDWrite_HiddenBlockBegin(int length);
 qbool MVDWrite_HiddenBlock(const void* data, int length);
