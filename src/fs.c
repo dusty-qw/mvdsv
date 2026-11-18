@@ -18,6 +18,24 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "qwsvdef.h"
+
+qbool FS_FormatPath(char *path, size_t size, const char *format, ...)
+{
+	va_list args;
+	int length;
+
+	va_start(args, format);
+	length = vsnprintf(path, size, format, args);
+	va_end(args);
+
+	if (length < 0 || (size_t)length >= size) {
+		if (size)
+			path[0] = '\0';
+		Con_Printf("Path is too long or could not be formatted\n");
+		return false;
+	}
+	return true;
+}
  
 
 /*
@@ -454,6 +472,7 @@ That is basically handy wrapper around FS_AddGameDirectory() for "gamedir" comma
 */
 void FS_SetGamedir (char *dir, qbool force)
 {
+	char path[MAX_OSPATH];
 	if (strstr(dir, "..") || strstr(dir, "/") || strstr(dir, "\\") || strstr(dir, ":")) 
 	{
 		Con_Printf ("Gamedir should be a single filename, not a path\n");
@@ -462,6 +481,13 @@ void FS_SetGamedir (char *dir, qbool force)
 
 	if (!force && !strcmp(fs_gamedirfile, dir))
 		return;		// Still the same, unless we forced.
+
+	// Validate before changing the active game directory or its search paths.
+	if (strlen(dir) >= sizeof(fs_gamedirfile) ||
+		!FS_FormatPath(path, sizeof(path), "%s/%s", fs_basedir, dir)) {
+		Con_Printf("Gamedir is too long\n");
+		return;
+	}
 
 	// FIXME: do we need it? since it will be set in FS_AddGameDirectory().
 	strlcpy (fs_gamedirfile, dir, sizeof(fs_gamedirfile));
@@ -488,9 +514,9 @@ void FS_SetGamedir (char *dir, qbool force)
 //	Cache_Flush ();
 
 	// FIXME: do we need it? since it will be set in FS_AddGameDirectory().
-	snprintf (fs_gamedir, sizeof (fs_gamedir), "%s/%s", fs_basedir, dir);
+	strlcpy (fs_gamedir, path, sizeof(fs_gamedir));
 
-	FS_AddGameDirectory(va("%s/%s", fs_basedir, dir), FS_LOAD_FILE_ALL);
+	FS_AddGameDirectory(path, FS_LOAD_FILE_ALL);
 }
 
 
@@ -642,7 +668,8 @@ vfsfile_t *FS_OpenVFS(const char *filename, char *mode, relativeto_t relativeto)
 		return VFSOS_Open(fullname, mode);
 
 	case FS_GAME_OS:	//OS access only, no paks
-		snprintf(fullname, sizeof(fullname), "%s/%s/%s", fs_basedir, fs_gamedirfile, filename);
+		if (!FS_FormatPath(fullname, sizeof(fullname), "%s/%s/%s", fs_basedir, fs_gamedirfile, filename))
+			return NULL;
 		if (strchr(mode, 'w') || strchr(mode, 'a'))
 			FS_CreatePath(fullname); // FIXME: It should be moved to VFSOS_Open() itself? 
 		return VFSOS_Open(fullname, mode);
@@ -661,7 +688,8 @@ vfsfile_t *FS_OpenVFS(const char *filename, char *mode, relativeto_t relativeto)
 		return NULL;
 
 	case FS_BASE_OS:	//OS access only, no paks
-		snprintf(fullname, sizeof(fullname), "%s/%s", fs_basedir, filename);
+		if (!FS_FormatPath(fullname, sizeof(fullname), "%s/%s", fs_basedir, filename))
+			return NULL;
 		return VFSOS_Open(fullname, mode);
 
 	case FS_ANY:
@@ -856,7 +884,8 @@ void FS_WriteFile (char *filename, void *data, int len)
 	FILE *f;
 	char name[MAX_OSPATH];
 
-	snprintf (name, MAX_OSPATH, "%s/%s", fs_gamedir, filename);
+	if (!FS_FormatPath(name, sizeof(name), "%s/%s", fs_gamedir, filename))
+		return;
 
 	f = fopen (name, "wb");
 	if (!f)

@@ -159,12 +159,13 @@ void DestClose (mvddest_t *d, qbool destroyfiles)
 	if (d->qtvuserlist)
 		QTVsv_FreeUserList(d);
 
-	if (destroyfiles)
+	if (destroyfiles && FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, d->path, d->name))
 	{
-		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, d->path, d->name);
 		Sys_remove(path);
-		strlcpy(path + strlen(path) - 3, "txt", MAX_OSPATH - strlen(path) + 3);
-		Sys_remove(path);
+		if (strlen(path) >= 3) {
+			strlcpy(path + strlen(path) - 3, "txt", MAX_OSPATH - strlen(path) + 3);
+			Sys_remove(path);
+		}
 
 		// force cache rebuild.
 		FS_FlushFSHash();
@@ -2142,11 +2143,14 @@ void SV_MVD_Record_f (void)
 
 	Sys_mkdir(va("%s/%s", fs_gamedir, sv_demoDir.string));
 
-	snprintf (name, sizeof(name), "%s/%s/%s", fs_gamedir, sv_demoDir.string, newname);
+	if (!FS_FormatPath(name, sizeof(name), "%s/%s/%s", fs_gamedir, sv_demoDir.string, newname))
+		return;
 
 	if ((c = strlen(name)) > 3)
-		if (strcmp(name + c - 4, ".mvd"))
-			strlcat(name, ".mvd", sizeof(name));
+		if (strcmp(name + c - 4, ".mvd") && strlcat(name, ".mvd", sizeof(name)) >= sizeof(name)) {
+			Con_Printf("Demo path is too long\n");
+			return;
+		}
 
 	//
 	// open the demo file and start recording

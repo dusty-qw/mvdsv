@@ -36,18 +36,23 @@ extern cvar_t maxclients;
 #define	SAVEGAME_COMMENT_LENGTH	39
 #define	SAVEGAME_VERSION	6
 
+static qbool SV_SaveGameFileName(char* buffer, int buffer_size, char* name)
+{
+	const char* filename;
 #ifdef SERVERONLY
-static void SV_SaveGameFileName(char* buffer, int buffer_size, char* name)
-{
-	snprintf(buffer, buffer_size, "%s/save/%s", fs_gamedir, name);
-}
+	if (!FS_FormatPath(buffer, buffer_size, "%s/save/%s", fs_gamedir, name))
+		return false;
 #else
-static void SV_SaveGameFileName(char* buffer, int buffer_size, char* name)
-{
 	FS_SaveGameDirectory(buffer, buffer_size);
-	strlcat(buffer, name, buffer_size);
-}
+	if (strlcat(buffer, name, buffer_size) >= buffer_size)
+		return false;
 #endif
+	filename = strrchr(buffer, '/');
+	filename = filename ? filename + 1 : buffer;
+	if (!strchr(filename, '.'))
+		return strlcat(buffer, ".sav", buffer_size) < buffer_size;
+	return true;
+}
 
 //Writes a SAVEGAME_COMMENT_LENGTH character comment
 void SV_SavegameComment (char *buffer) {
@@ -120,8 +125,10 @@ void SV_SaveGame_f(void)
 		return;
 	}
 
-	SV_SaveGameFileName (fname, sizeof(fname), Cmd_Argv(1));
-	COM_DefaultExtension (fname, ".sav");
+	if (!SV_SaveGameFileName(fname, sizeof(fname), Cmd_Argv(1))) {
+		Con_Printf("Savegame path is too long\n");
+		return;
+	}
 	
 	Con_Printf ("Saving game to %s...\n", fname);
 	if (!(f = fopen (fname, "w"))) {		
@@ -176,8 +183,10 @@ void SV_LoadGame_f(void)
 		return;
 	}
 
-	SV_SaveGameFileName (name, sizeof(name), Cmd_Argv(1));
-	COM_DefaultExtension (name, ".sav");
+	if (!SV_SaveGameFileName(name, sizeof(name), Cmd_Argv(1))) {
+		Con_Printf("Savegame path is too long\n");
+		return;
+	}
 
 	Con_Printf ("Loading game from %s...\n", name);
 	if (!(f = fopen (name, "rb"))) {

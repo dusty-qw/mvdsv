@@ -2232,7 +2232,8 @@ static void SV_WriteIPVIP_f (void)
 	byte	b[4];
 	int		i;
 
-	snprintf (name, MAX_OSPATH, "%s/vip_ip.cfg", fs_gamedir);
+	if (!FS_FormatPath(name, sizeof(name), "%s/vip_ip.cfg", fs_gamedir))
+		return;
 
 	Con_Printf ("Writing %s.\n", name);
 
@@ -2384,7 +2385,8 @@ static void SV_WriteIP_f (void)
 	byte	b[4];
 	int		i;
 
-	snprintf (name, MAX_OSPATH, "%s/listip.cfg", fs_gamedir);
+	if (!FS_FormatPath(name, sizeof(name), "%s/listip.cfg", fs_gamedir))
+		return;
 
 	Con_Printf ("Writing %s.\n", name);
 

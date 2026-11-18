@@ -219,7 +219,11 @@ void Run_sv_demotxt_and_sv_onrecordfinish (const char *dest_name, const char *de
 {
 	char path[MAX_OSPATH];
 
-	snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, dest_path, dest_name);
+	if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, dest_path, dest_name)) {
+		return;
+	}
+	if (strlen(path) < 3)
+		return;
 	strlcpy(path + strlen(path) - 3, "txt", MAX_OSPATH - strlen(path) + 3);
 
 	if ((int)sv_demotxt.value && !destroyfiles) // dont keep txt's for deleted demos
@@ -619,11 +623,13 @@ void SV_MVDRemove_f (void)
 		{
 			if (strstr(list->name, ptr))
 			{
-				if (sv.mvdrecording && DestByName(list->name)/*!strcmp(list->name, demo.name)*/)
-					SV_MVDStop_f(); // FIXME: probably we must stop not all demos, but only partial dest
+				if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string, list->name)) {
+					continue;
+				}
 
 				// stop recording first;
-				snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, sv_demoDir.string, list->name);
+				if (sv.mvdrecording && DestByName(list->name)/*!strcmp(list->name, demo.name)*/)
+					SV_MVDStop_f(); // FIXME: probably we must stop not all demos, but only partial dest
 				if (!Sys_remove(path))
 				{
 					Con_Printf("removing %s...\n", list->name);
@@ -652,7 +658,9 @@ void SV_MVDRemove_f (void)
 	strlcpy(name, Cmd_Argv(1), MAX_DEMO_NAME);
 	COM_DefaultExtension(name, ".mvd");
 
-	snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, sv_demoDir.string, name);
+	if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string, name)) {
+		return;
+	}
 
 	if (sv.mvdrecording && DestByName(name) /*!strcmp(name, demo.name)*/)
 		SV_MVDStop_f(); // FIXME: probably we must stop not all demos, but only partial dest
@@ -705,10 +713,12 @@ void SV_MVDRemoveNum_f (void)
 
 	if (name != NULL)
 	{
+		if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string, name)) {
+			return;
+		}
+
 		if (sv.mvdrecording && DestByName(name)/*!strcmp(name, demo.name)*/)
 			SV_MVDStop_f(); // FIXME: probably we must stop not all demos, but only partial dest
-
-		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, sv_demoDir.string, name);
 		if (!Sys_remove(path))
 		{
 			Con_Printf("demo %s successfully removed\n", name);
@@ -755,7 +765,9 @@ void SV_MVDInfoAdd_f (void)
 			return;
 		}
 
-		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, sv_demoDir.string, SV_MVDName2Txt(demoname));
+		if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string, SV_MVDName2Txt(demoname))) {
+			return;
+		}
 	}
 	else {
 		name = SV_MVDTxTNum(Q_atoi(Cmd_Argv(1)));
@@ -765,7 +777,9 @@ void SV_MVDInfoAdd_f (void)
 			return;
 		}
 
-		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, sv_demoDir.string, name);
+		if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string, name)) {
+			return;
+		}
 	}
 
 	if ((f = fopen(path, !strcmp(Cmd_Argv(1), "**") ? "a+b" : "a+t")) == NULL)
@@ -779,7 +793,10 @@ void SV_MVDInfoAdd_f (void)
 		// put content of one file to another
 		FILE *src;
 
-		snprintf(path, MAX_OSPATH, "%s/%s", fs_gamedir, Cmd_Argv(2));
+		if (!FS_FormatPath(path, sizeof(path), "%s/%s", fs_gamedir, Cmd_Argv(2))) {
+			fclose(f);
+			return;
+		}
 
 		if ((src = fopen(path, "rb")) == NULL) // open src
 		{
@@ -840,7 +857,9 @@ void SV_MVDEmbedInfo_f(void)
 
 	// No config files, no sub-directories
 	strlcpy(name, Cmd_Argv(1), sizeof(name));
-	snprintf(path, MAX_OSPATH, "%s/%s", fs_gamedir, Cmd_Argv(1));
+	if (!FS_FormatPath(path, sizeof(path), "%s/%s", fs_gamedir, Cmd_Argv(1))) {
+		return;
+	}
 	if (FS_UnsafeFilename(path) || !strcasecmp(COM_FileExtension(name), "cfg")) {
 		Con_Printf("Unsafe filename detected - cancelled\n");
 		return;
@@ -921,7 +940,9 @@ void SV_MVDInfoRemove_f (void)
 
 //		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, demo.path, SV_MVDName2Txt(demo.name));
 // FIXME: dunno is this right, just using first dest, also may be we must use demo.dest->path instead of sv_demoDir
-		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, sv_demoDir.string, SV_MVDName2Txt(demo.dest->name));
+		if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string, SV_MVDName2Txt(demo.dest->name))) {
+			return;
+		}
 	}
 	else
 	{
@@ -933,7 +954,9 @@ void SV_MVDInfoRemove_f (void)
 			return;
 		}
 
-		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, sv_demoDir.string, name);
+		if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string, name)) {
+			return;
+		}
 	}
 
 	if (Sys_remove(path))
@@ -967,7 +990,9 @@ void SV_MVDInfo_f (void)
 
 //		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, demo.path, SV_MVDName2Txt(demo.name));
 // FIXME: dunno is this right, just using first dest, also may be we must use demo.dest->path instead of sv_demoDir
-		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, sv_demoDir.string, SV_MVDName2Txt(demo.dest->name));
+		if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string, SV_MVDName2Txt(demo.dest->name))) {
+			return;
+		}
 	}
 	else
 	{
@@ -979,7 +1004,9 @@ void SV_MVDInfo_f (void)
 			return;
 		}
 
-		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, sv_demoDir.string, name);
+		if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string, name)) {
+			return;
+		}
 	}
 
 	if ((f = fopen(path, "rt")) == NULL)
@@ -1041,8 +1068,11 @@ void SV_LastScores_f (void)
 
 	for (i = dir.numfiles - demos; i < dir.numfiles; )
 	{
-		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, sv_demoDir.string,
-					SV_MVDName2Txt(dir.files[i].name));
+		if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string,
+					SV_MVDName2Txt(dir.files[i].name))) {
+			++i;
+			continue;
+		}
 
 		Con_Printf("%i. ", ++i);
 		if ((f = fopen(path, "rt")) == NULL)
@@ -1117,8 +1147,10 @@ void SV_LastStats_f (void)
 
 	for (i = dir.numfiles - limit; i < dir.numfiles; i++)
 	{
-		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, sv_demoDir.string,
-					SV_MVDName2Txt(dir.files[i].name));
+		if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string,
+					SV_MVDName2Txt(dir.files[i].name))) {
+			continue;
+		}
 
 		if ((f = fopen(path, "rt")) != NULL)
 		{

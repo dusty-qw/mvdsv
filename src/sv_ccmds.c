@@ -476,14 +476,18 @@ void SV_Map (qbool now)
 		return;
 	}
 
-	strlcpy (level, Cmd_Argv(1), MAX_QPATH);
+	if (strlcpy(level, Cmd_Argv(1), sizeof(level)) >= sizeof(level)) {
+		Con_Printf("Map name is too long\n");
+		return;
+	}
 
 	memset(entityfile, 0, sizeof(entityfile));
 	if (Cmd_Argc() >= 3)
 		strlcpy (entityfile, Cmd_Argv(2), MAX_QPATH);
 
 	// check to make sure the level exists
-	snprintf (expanded, MAX_QPATH, "maps/%s.bsp", level);
+	if (!FS_FormatPath(expanded, sizeof(expanded), "maps/%s.bsp", level))
+		return;
 
 	// Flush FS cache on each map change.
 	FS_FlushFSHash();
@@ -949,7 +953,10 @@ void SV_Cuff_f (void)
 		{
 			SV_BroadcastPrintf (PRINT_CHAT, "%s cuffed for %.1f minutes%s%s\n", cl->name, mins, reason[0] ? ": " : "", reason[0] ? reason : "");
 
-			snprintf(text, sizeof(text), "You are cuffed for %.1f minutes%s%s\n", mins, reason[0] ? "\n\n" : "", reason[0] ? reason : "");
+			snprintf(text, sizeof(text), "You are cuffed for %.1f minutes%s", mins, reason[0] ? "\n\n" : "");
+			// Reserve a byte for the final newline when clipping a long reason.
+			strlcat(text, reason, sizeof(text) - 1);
+			strlcat(text, "\n", sizeof(text));
 			ClientReliableWrite_Begin(cl,svc_centerprint, 2+strlen(text));
 			ClientReliableWrite_String (cl, text);
 		}
@@ -1036,7 +1043,10 @@ void SV_Mute_f (void)
 		{
 			if (print)
 				SV_BroadcastPrintf (PRINT_CHAT, "%s muted for %.1f minutes%s%s\n", cl->name, mins, reason[0] ? ": " : "", reason[0] ? reason : "");
-			snprintf(text, sizeof(text), "You are muted for %.1f minutes%s%s\n", mins, reason[0] ? "\n\n" : "", reason[0] ? reason : "");
+			snprintf(text, sizeof(text), "You are muted for %.1f minutes%s", mins, reason[0] ? "\n\n" : "");
+			// Reserve a byte for the final newline when clipping a long reason.
+			strlcat(text, reason, sizeof(text) - 1);
+			strlcat(text, "\n", sizeof(text));
 			ClientReliableWrite_Begin(cl, svc_centerprint, 2+strlen(text));
 			ClientReliableWrite_String (cl, text);
 		}
@@ -1723,7 +1733,7 @@ void SV_Snap (int uid)
 	}
 
 	snprintf (name, sizeof(name), "%s", cl->name);
-	Q_normalizefilenametext (name);
+	Q_normalizefilenametext ((unsigned char *)name);
 
 	FS_CreatePath (va ("%s/snap/", fs_gamedir));
 	snprintf (pcxname, sizeof (pcxname), "%s-%d-00.jpg", name, uid);
@@ -1732,7 +1742,8 @@ void SV_Snap (int uid)
 	{
 		pcxname[strlen(pcxname) - 6] = i/10 + '0';
 		pcxname[strlen(pcxname) - 5] = i%10 + '0';
-		snprintf (checkname, MAX_OSPATH, "%s/snap/%s", fs_gamedir, pcxname);
+		if (!FS_FormatPath(checkname, sizeof(checkname), "%s/snap/%s", fs_gamedir, pcxname))
+			return;
 		f = fopen (checkname, "rb");
 		if (!f)
 			break; // file doesn't exist
@@ -1743,7 +1754,11 @@ void SV_Snap (int uid)
 		Con_Printf ("Snap: Couldn't create a file, clean some out.\n");
 		return;
 	}
-	strlcpy(cl->uploadfn, checkname, MAX_QPATH);
+	if (strlcpy(cl->uploadfn, checkname, sizeof(cl->uploadfn)) >= sizeof(cl->uploadfn)) {
+		cl->uploadfn[0] = '\0';
+		Con_Printf("Snap path is too long\n");
+		return;
+	}
 
 	memcpy(&cl->snap_from, &net_from, sizeof(net_from));
 	if (sv_redirected != RD_NONE)

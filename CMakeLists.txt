@@ -87,7 +87,7 @@ if(UNIX)
 		"${DIR_SRC}/sv_sys_unix.c"
 	)
 	# Check for curl, and include sources and libs, if found
-	find_package(CURL)
+	find_package(CURL 7.56.0)
 	if(NOT CURL_FOUND)
 		message(STATUS "Curl library not found")
 	else()

@@ -2072,17 +2072,19 @@ intptr_t PF2_FS_GetFileList(char *path, char *ext,
 		if ((flags & FILELIST_GAMEDIR_ONLY) && strcmp(gpath, fs_gamedir))
 			continue;
 
-		snprintf (netpath, sizeof (netpath), "%s/%s", gpath, path);
+		if (!FS_FormatPath(netpath, sizeof(netpath), "%s/%s", gpath, path))
+			continue;
 
 		// reg exp search...
 		dir = Sys_listdir_no_metadata(netpath, ext);
 
-		for (j = 0; i < list_cnt && dir.files[j].name[0]; j++, i++)
+		for (j = 0; i < list_cnt && dir.files[j].name[0]; j++)
 		{
 			if (flags & FILELIST_WITH_PATH)
 			{
 				// with path
-				snprintf (netpath, sizeof (netpath), "%s/%s", gpath, dir.files[j].name);
+				if (!FS_FormatPath(netpath, sizeof(netpath), "%s/%s", gpath, dir.files[j].name))
+					continue;
 				fullname = netpath;
 
 				// skip "./" prefix
@@ -2104,7 +2106,7 @@ intptr_t PF2_FS_GetFileList(char *path, char *ext,
 #endif
 			}
 
-			list[i] = Q_strdup(fullname); // a bit below we will free it
+			list[i++] = Q_strdup(fullname); // a bit below we will free it
 		}
 	}
 

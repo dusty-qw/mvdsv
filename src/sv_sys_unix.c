@@ -164,7 +164,8 @@ static dir_t listdir_internal(const char *path, const char *ext,
 				return dir;
 			}
 		}
-		snprintf(pathname, sizeof(pathname), "%s/%s", path, oneentry->d_name);
+		if (!FS_FormatPath(pathname, sizeof(pathname), "%s/%s", path, oneentry->d_name))
+			continue;
 		if (oneentry->d_type != DT_UNKNOWN && oneentry->d_type != DT_LNK)
 		{
 			isdir = oneentry->d_type == DT_DIR;
@@ -241,7 +242,10 @@ int Sys_EnumerateFiles (char *gpath, char *match, int (*func)(char *, int, void 
 		gpath = "";
 	*apath = '\0';
 
-	strlcpy(apath, match, sizeof(apath));
+	if (strlcpy(apath, match, sizeof(apath)) >= sizeof(apath)) {
+		Con_Printf("File match is too long\n");
+		return false;
+	}
 	for (s = apath+strlen(apath)-1; s >= apath; s--)
 	{
 		if (*s == '/')
@@ -254,7 +258,8 @@ int Sys_EnumerateFiles (char *gpath, char *match, int (*func)(char *, int, void 
 	if (s < apath)  //didn't find a '/'
 		*apath = '\0';
 
-	snprintf(truepath, sizeof(truepath), "%s/%s", gpath, apath);
+	if (!FS_FormatPath(truepath, sizeof(truepath), "%s/%s", gpath, apath))
+		return false;
 
 
 	//printf("truepath = %s\n", truepath);
@@ -275,18 +280,27 @@ int Sys_EnumerateFiles (char *gpath, char *match, int (*func)(char *, int, void 
 		if (*ent->d_name != '.')
 			if (wildcmp(match, ent->d_name))
 			{
-				snprintf(file, sizeof(file), "%s/%s", truepath, ent->d_name);
+				if (!FS_FormatPath(file, sizeof(file), "%s/%s", truepath, ent->d_name)) {
+					closedir(dir);
+					return false;
+				}
 				//would use stat, but it breaks on fat32.
 
 				if ((dir2 = opendir(file)))
 				{
 					closedir(dir2);
-					snprintf(file, sizeof(file), "%s%s/", apath, ent->d_name);
+					if (!FS_FormatPath(file, sizeof(file), "%s%s/", apath, ent->d_name)) {
+						closedir(dir);
+						return false;
+					}
 					//printf("is directory = %s\n", file);
 				}
 				else
 				{
-					snprintf(file, sizeof(file), "%s%s", apath, ent->d_name);
+					if (!FS_FormatPath(file, sizeof(file), "%s%s", apath, ent->d_name)) {
+						closedir(dir);
+						return false;
+					}
 					//printf("file = %s\n", file);
 				}
 

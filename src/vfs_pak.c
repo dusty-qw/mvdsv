@@ -251,7 +251,8 @@ static qbool FSPAK_FLocate(void *handle, flocation_t *loc, const char *filename,
 		if (loc)
 		{
 			loc->index = pf - pak->files;
-			snprintf(loc->rawname, sizeof(loc->rawname), "%s/%s", pak->filename, filename);
+			if (!FS_FormatPath(loc->rawname, sizeof(loc->rawname), "%s/%s", pak->filename, filename))
+				return false;
 			loc->offset = pf->filepos;
 			loc->len = pf->filelen;
 		}

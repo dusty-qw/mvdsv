@@ -30,7 +30,10 @@ struct web_request_data_s;
 typedef void(*web_response_func_t)(struct web_request_data_s* req, qbool valid);
 static void Web_ConstructURL(char* url, const char* path, int sizeof_url);
 static int utf_encode_string(char* value, char* encoded_value);
-static void Web_SubmitRequestForm(const char* url, struct curl_httppost *first_form_ptr, struct curl_httppost *last_form_ptr, web_response_func_t callback, const char* requestId, void* internal_data);
+static struct web_request_data_s* Web_CreateRequest(web_response_func_t callback, const char* requestId, void* internal_data);
+static void Web_FreeRequest(struct web_request_data_s* data);
+static qbool Web_AddFormPart(struct web_request_data_s* data, const char* name, const char* value, qbool file);
+static void Web_SubmitRequestForm(const char* url, struct web_request_data_s* data);
 
 typedef struct web_request_data_s {
 	CURL*               handle;
@@ -41,8 +44,7 @@ typedef struct web_request_data_s {
 	size_t              response_length;
 
 	// form data
-	struct curl_httppost *first_form_ptr;
-	struct curl_httppost *last_form_ptr;
+	curl_mime*          form;
 
 	// called when response complete
 	web_response_func_t onCompleteCallback;
@@ -81,7 +83,7 @@ static qbool CheckFileExists(const char* path)
 size_t Web_StandardTokenWrite(void* buffer, size_t size, size_t nmemb, void* userp)
 {
 	web_request_data_t* data = (web_request_data_t*)userp;
-	size_t available = sizeof(data->response) - data->response_length;
+	size_t available = sizeof(data->response) - 1 - data->response_length;
 	if (size * nmemb > available) {
 		Con_DPrintf("WWW: Response too large, size*nmemb = %d, available %d\n", size * nmemb, available);
 		return 0;
@@ -289,34 +291,30 @@ void Web_PostResponse(web_request_data_t* req, qbool valid)
 
 					if (sv_demoDir.string[0]) {
 						char url[512];
-						struct curl_httppost *first_form_ptr = NULL;
-						struct curl_httppost *last_form_ptr = NULL;
+						qbool found;
 
-						snprintf(demoName, sizeof(demoName), "%s/%s/%s", fs_gamedir, sv_demoDir.string, upload + 6);
-						if (!CheckFileExists(demoName) && sv_demoDirAlt.string[0]) {
-							snprintf(demoName, sizeof(demoName), "%s/%s/%s", fs_gamedir, sv_demoDirAlt.string, upload + 6);
+						found = FS_FormatPath(demoName, sizeof(demoName), "%s/%s/%s", fs_gamedir, sv_demoDir.string, upload + 6) && CheckFileExists(demoName);
+						if (!found && sv_demoDirAlt.string[0]) {
+							found = FS_FormatPath(demoName, sizeof(demoName), "%s/%s/%s", fs_gamedir, sv_demoDirAlt.string, upload + 6) && CheckFileExists(demoName);
 						}
 
-						if (CheckFileExists(demoName)) {
-							Web_ConstructURL(url, uploadPath, sizeof(url));
+						if (found) {
+							web_request_data_t* data = Web_CreateRequest(Web_PostResponse, "upload", NULL);
 
-							curl_formadd(&first_form_ptr, &last_form_ptr,
-								CURLFORM_PTRNAME, "file",
-								CURLFORM_FILE, demoName,
-								CURLFORM_END
-							);
-
-							curl_formadd(&first_form_ptr, &last_form_ptr,
-								CURLFORM_COPYNAME, "localPath",
-								CURLFORM_COPYCONTENTS, upload,
-								CURLFORM_END
-							);
-
-							Web_SubmitRequestForm(url, first_form_ptr, last_form_ptr, Web_PostResponse, "upload", NULL);
-							Con_Printf("Uploading %s...\n", demoName);
+							if (data) {
+								if (Web_AddFormPart(data, "file", demoName, true) &&
+									Web_AddFormPart(data, "localPath", upload, false)) {
+									Web_ConstructURL(url, uploadPath, sizeof(url));
+									Con_Printf("Uploading %s...\n", demoName);
+									Web_SubmitRequestForm(url, data);
+								}
+								else {
+									Web_FreeRequest(data);
+								}
+							}
 						}
 						else {
-							Con_Printf("Couldn't find file %s, ignoring...\n", demoName);
+							Con_Printf("Couldn't find requested demo, ignoring...\n");
 						}
 					}
 				}
@@ -335,98 +333,137 @@ void Web_PostResponse(web_request_data_t* req, qbool valid)
 	}
 }
 
-static void Web_SubmitRequestForm(const char* url, struct curl_httppost *first_form_ptr, struct curl_httppost *last_form_ptr, web_response_func_t callback, const char* requestId, void* internal_data)
+static void Web_FreeRequest(web_request_data_t* data)
 {
-	CURL* req = curl_easy_init();
-	web_request_data_t* data = Q_malloc(sizeof(web_request_data_t));
-	curl_formadd(&first_form_ptr, &last_form_ptr,
-		CURLFORM_PTRNAME, "authKey",
-		CURLFORM_COPYCONTENTS, sv_www_authkey.string,
-		CURLFORM_END
-	);
+	curl_easy_cleanup(data->handle);
+	curl_mime_free(data->form);
+	Q_free(data->request_id);
+	Q_free(data);
+}
+
+static web_request_data_t* Web_CreateRequest(web_response_func_t callback, const char* requestId, void* internal_data)
+{
+	web_request_data_t* data = Q_calloc(1, sizeof(*data));
+
+	data->handle = curl_easy_init();
+	if (data->handle)
+		data->form = curl_mime_init(data->handle);
+	if (!data->handle || !data->form) {
+		Con_Printf("Request failed (initializing form)\n");
+		Web_FreeRequest(data);
+		return NULL;
+	}
 
 	data->onCompleteCallback = callback;
 	data->time_sent = curtime;
 	data->internal_data = internal_data;
-	data->handle = req;
-	data->request_id = requestId && requestId[0] ? strdup(requestId) : NULL;
-	data->first_form_ptr = first_form_ptr;
+	data->request_id = requestId && requestId[0] ? Q_strdup(requestId) : NULL;
+	return data;
+}
 
-	curl_easy_setopt(req, CURLOPT_URL, url);
-	curl_easy_setopt(req, CURLOPT_WRITEDATA, data);
-	curl_easy_setopt(req, CURLOPT_WRITEFUNCTION, Web_StandardTokenWrite);
-	if (first_form_ptr) {
-		curl_easy_setopt(req, CURLOPT_POST, 1);
-		curl_easy_setopt(req, CURLOPT_HTTPPOST, first_form_ptr);
+static qbool Web_AddFormPart(web_request_data_t* data, const char* name, const char* value, qbool file)
+{
+	curl_mimepart* part = curl_mime_addpart(data->form);
+	CURLcode code = part ? curl_mime_name(part, name) : CURLE_OUT_OF_MEMORY;
+
+	if (code == CURLE_OK)
+		code = file ? curl_mime_filedata(part, value) : curl_mime_data(part, value, CURL_ZERO_TERMINATED);
+	if (code != CURLE_OK) {
+		Con_Printf("Request failed (adding to form): %s\n", curl_easy_strerror(code));
+		return false;
+	}
+	return true;
+}
+
+// Takes ownership of data, including on submission failure.
+static void Web_SubmitRequestForm(const char* url, web_request_data_t* data)
+{
+	CURLcode code;
+	CURLMcode multi_code;
+
+	if (!Web_AddFormPart(data, "authKey", sv_www_authkey.string, false))
+		goto failed;
+
+	code = curl_easy_setopt(data->handle, CURLOPT_URL, url);
+	if (code == CURLE_OK)
+		code = curl_easy_setopt(data->handle, CURLOPT_WRITEDATA, data);
+	if (code == CURLE_OK)
+		code = curl_easy_setopt(data->handle, CURLOPT_WRITEFUNCTION, Web_StandardTokenWrite);
+	if (code == CURLE_OK)
+		code = curl_easy_setopt(data->handle, CURLOPT_MIMEPOST, data->form);
+	if (code != CURLE_OK) {
+		Con_Printf("Request failed (setting options): %s\n", curl_easy_strerror(code));
+		goto failed;
 	}
 
-	curl_multi_add_handle(curl_handle, req);
+	multi_code = curl_multi_add_handle(curl_handle, data->handle);
+	if (multi_code != CURLM_OK) {
+		Con_Printf("Request failed (submitting): %s\n", curl_multi_strerror(multi_code));
+		goto failed;
+	}
+
 	data->next = web_requests;
 	web_requests = data;
+	return;
+
+failed:
+	if (data->onCompleteCallback)
+		data->onCompleteCallback(data, false);
+	Web_FreeRequest(data);
 }
 
 void Central_VerifyChallengeResponse(client_t* client, const char* challenge, const char* response)
 {
 	char url[512];
-	struct curl_httppost *first_form_ptr = NULL;
-	struct curl_httppost *last_form_ptr = NULL;
+	web_request_data_t* data;
 
 	if (!sv_www_address.string[0]) {
 		SV_ClientPrintf2(client, PRINT_HIGH, "Remote logins not supported on this server\n");
 		return;
 	}
 
-	curl_formadd(&first_form_ptr, &last_form_ptr,
-		CURLFORM_PTRNAME, "challenge",
-		CURLFORM_COPYCONTENTS, challenge,
-		CURLFORM_END
-	);
-
-	curl_formadd(&first_form_ptr, &last_form_ptr,
-		CURLFORM_PTRNAME, "response",
-		CURLFORM_COPYCONTENTS, response,
-		CURLFORM_END
-	);
+	data = Web_CreateRequest(Auth_ProcessLoginAttempt, NULL, client);
+	if (!data)
+		return;
+	if (!Web_AddFormPart(data, "challenge", challenge, false) ||
+		!Web_AddFormPart(data, "response", response, false)) {
+		Web_FreeRequest(data);
+		return;
+	}
 
 	Web_ConstructURL(url, VERIFY_RESPONSE_PATH, sizeof(url));
-
 	client->login_request_time = curtime;
-	Web_SubmitRequestForm(url, first_form_ptr, last_form_ptr, Auth_ProcessLoginAttempt, NULL, client);
+	Web_SubmitRequestForm(url, data);
 }
 
 void Central_GenerateChallenge(client_t* client, const char* username, qbool during_login)
 {
 	char url[512];
-	struct curl_httppost *first_form_ptr = NULL;
-	struct curl_httppost *last_form_ptr = NULL;
+	web_request_data_t* data;
 
 	if (!sv_www_address.string[0]) {
 		SV_ClientPrintf2(client, PRINT_HIGH, "Remote logins not supported on this server\n");
 		return;
 	}
 
+	data = Web_CreateRequest(Auth_GenerateChallengeResponse, NULL, client);
+	if (!data)
+		return;
+	if (!Web_AddFormPart(data, "userName", username, false) ||
+		!Web_AddFormPart(data, "status", during_login ? "0" : "1", false)) {
+		Web_FreeRequest(data);
+		return;
+	}
+
 	Web_ConstructURL(url, GENERATE_CHALLENGE_PATH, sizeof(url));
-
-	curl_formadd(&first_form_ptr, &last_form_ptr,
-		CURLFORM_PTRNAME, "userName",
-		CURLFORM_COPYCONTENTS, username,
-		CURLFORM_END
-	);
-
-	curl_formadd(&first_form_ptr, &last_form_ptr,
-		CURLFORM_PTRNAME, "status",
-		CURLFORM_COPYCONTENTS, during_login ? "0" : "1",
-		CURLFORM_END
-	);
-
 	client->login_request_time = curtime;
-	Web_SubmitRequestForm(url, first_form_ptr, last_form_ptr, Auth_GenerateChallengeResponse, NULL, client);
+	Web_SubmitRequestForm(url, data);
 }
 
 static void Web_ConstructURL(char* url, const char* path, int sizeof_url)
 {
 	strlcpy(url, sv_www_address.string, sizeof_url);
-	if (url[strlen(url) - 1] != '/') {
+	if (!url[0] || url[strlen(url) - 1] != '/') {
 		strlcat(url, "/", sizeof_url);
 	}
 	while (*path == '/') {
@@ -437,7 +474,7 @@ static void Web_ConstructURL(char* url, const char* path, int sizeof_url)
 
 #define MAX_ENCODED_STRINGLEN 128
 
-static qbool Web_AddParametersToRequest(int first_param, struct curl_httppost** first_form_ptr, struct curl_httppost** last_form_ptr)
+static qbool Web_AddParametersToRequest(int first_param, web_request_data_t* data)
 {
 	int i;
 
@@ -446,7 +483,6 @@ static qbool Web_AddParametersToRequest(int first_param, struct curl_httppost** 
 		int j;
 		char* name;
 		char* value;
-		CURLFORMcode code;
 
 		name = Cmd_Argv(i);
 		value = Cmd_Argv(i + 1);
@@ -460,29 +496,13 @@ static qbool Web_AddParametersToRequest(int first_param, struct curl_httppost** 
 						if (svs.clients[j].login[0] && svs.clients[j].logged_in_via_web) {
 							name = va("logins[%d].name", login_count);
 							utf_encode_string(svs.clients[j].login, encoded_value);
-							code = curl_formadd(first_form_ptr, last_form_ptr,
-								CURLFORM_COPYNAME, name,
-								CURLFORM_COPYCONTENTS, encoded_value,
-								CURLFORM_END
-							);
-
-							if (code != CURLE_OK) {
-								Con_Printf("Request failed (adding to form)\n");
+							if (!Web_AddFormPart(data, name, encoded_value, false))
 								return false;
-							}
 
 							name = va("logins[%d].token", login_count);
 							utf_encode_string(svs.clients[j].login_confirmation, encoded_value);
-							code = curl_formadd(first_form_ptr, last_form_ptr,
-								CURLFORM_COPYNAME, name,
-								CURLFORM_COPYCONTENTS, encoded_value,
-								CURLFORM_END
-							);
-
-							if (code != CURLE_OK) {
-								Con_Printf("Request failed (adding to form)\n");
+							if (!Web_AddFormPart(data, name, encoded_value, false))
 								return false;
-							}
 
 							++login_count;
 						}
@@ -490,16 +510,8 @@ static qbool Web_AddParametersToRequest(int first_param, struct curl_httppost** 
 				}
 
 				snprintf(encoded_value, sizeof(encoded_value), "%d", login_count);
-				code = curl_formadd(first_form_ptr, last_form_ptr,
-					CURLFORM_COPYNAME, "logincount",
-					CURLFORM_COPYCONTENTS, encoded_value,
-					CURLFORM_END
-				);
-
-				if (code != CURLE_OK) {
-					Con_Printf("Request failed (adding to form)\n");
+				if (!Web_AddFormPart(data, "logincount", encoded_value, false))
 					return false;
-				}
 			}
 			continue;
 		}
@@ -507,16 +519,8 @@ static qbool Web_AddParametersToRequest(int first_param, struct curl_httppost** 
 			utf_encode_string(value, encoded_value);
 		}
 
-		code = curl_formadd(first_form_ptr, last_form_ptr,
-			CURLFORM_COPYNAME, name,
-			CURLFORM_COPYCONTENTS, encoded_value,
-			CURLFORM_END
-		);
-
-		if (code != CURLE_OK) {
-			Con_Printf("Request failed (adding to form)\n");
+		if (!Web_AddFormPart(data, name, encoded_value, false))
 			return false;
-		}
 	}
 
 	return true;
@@ -524,10 +528,8 @@ static qbool Web_AddParametersToRequest(int first_param, struct curl_httppost** 
 
 static void Web_SendRequest(qbool post)
 {
-	struct curl_httppost *first_form_ptr = NULL;
-	struct curl_httppost *last_form_ptr = NULL;
+	web_request_data_t* data;
 	char url[512];
-	char* requestId = NULL;
 
 	if (!sv_www_address.string[0]) {
 		Con_Printf("Address not set - functionality disabled\n");
@@ -540,21 +542,15 @@ static void Web_SendRequest(qbool post)
 	}
 
 	Web_ConstructURL(url, Cmd_Argv(1), sizeof(url));
-
-	requestId = Cmd_Argv(2);
-	if (requestId[0]) {
-		requestId = Q_strdup(requestId);
-	}
-	else {
-		requestId = NULL;
-	}
-
-	if (!Web_AddParametersToRequest(3, &first_form_ptr, &last_form_ptr)) {
-		curl_formfree(first_form_ptr);
+	data = Web_CreateRequest(Web_PostResponse, Cmd_Argv(2), NULL);
+	if (!data)
+		return;
+	if (!Web_AddParametersToRequest(3, data)) {
+		Web_FreeRequest(data);
 		return;
 	}
 
-	Web_SubmitRequestForm(url, first_form_ptr, last_form_ptr, Web_PostResponse, requestId, NULL);
+	Web_SubmitRequestForm(url, data);
 }
 
 int utf_encode_string(char* value, char* encoded_value)
@@ -580,12 +576,9 @@ static void Web_PostRequest_f(void)
 
 static void Web_PostFileRequest_f(void)
 {
-	struct curl_httppost *first_form_ptr = NULL;
-	struct curl_httppost *last_form_ptr = NULL;
-	char* requestId = NULL;
+	web_request_data_t* data;
 	char url[512];
 	char path[MAX_OSPATH];
-	CURLFORMcode code = 0;
 	const char* specified;
 
 	if (!sv_www_address.string[0]) {
@@ -598,14 +591,6 @@ static void Web_PostFileRequest_f(void)
 		return;
 	}
 
-	requestId = Cmd_Argv(2);
-	if (requestId[0]) {
-		requestId = Q_strdup(requestId);
-	}
-	else {
-		requestId = NULL;
-	}
-
 	specified = Cmd_Argv(3);
 	if (specified[0] == '*' && specified[1] == '\0') {
 		const char* demoname = SV_MVDDemoName();
@@ -615,7 +600,8 @@ static void Web_PostFileRequest_f(void)
 			return;
 		}
 
-		snprintf(path, MAX_OSPATH, "%s/%s/%s", fs_gamedir, sv_demoDir.string, SV_MVDName2Txt(demoname));
+		if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string, SV_MVDName2Txt(demoname)))
+			return;
 	}
 	else {
 		if (strstr(specified, ".cfg") || FS_UnsafeFilename(specified)) {
@@ -623,7 +609,8 @@ static void Web_PostFileRequest_f(void)
 			return;
 		}
 
-		snprintf(path, MAX_OSPATH, "%s/%s", fs_gamedir, specified);
+		if (!FS_FormatPath(path, sizeof(path), "%s/%s", fs_gamedir, specified))
+			return;
 	}
 
 	if (FS_UnsafeFilename(path)) {
@@ -638,23 +625,16 @@ static void Web_PostFileRequest_f(void)
 		return;
 	}
 
-	code = curl_formadd(&first_form_ptr, &last_form_ptr,
-		CURLFORM_PTRNAME, "file",
-		CURLFORM_FILE, path,
-		CURLFORM_END
-	);
-	if (code != CURLE_OK) {
-		Con_Printf("Request failed (adding file to form)\n");
+	data = Web_CreateRequest(Web_PostResponse, Cmd_Argv(2), NULL);
+	if (!data)
+		return;
+	if (!Web_AddFormPart(data, "file", path, true) ||
+		!Web_AddParametersToRequest(4, data)) {
+		Web_FreeRequest(data);
 		return;
 	}
 
-	// Optional parameters to be sent to web server
-	if (!Web_AddParametersToRequest(4, &first_form_ptr, &last_form_ptr)) {
-		curl_formfree(first_form_ptr);
-		return;
-	}
-
-	Web_SubmitRequestForm(url, first_form_ptr, last_form_ptr, Web_PostResponse, requestId, NULL);
+	Web_SubmitRequestForm(url, data);
 }
 
 void Central_ProcessResponses(void)
@@ -688,9 +668,6 @@ void Central_ProcessResponses(void)
 					// Remove from queue immediately
 					*list_pointer = this->next;
 
-					if (this->request_id && !strcmp(this->request_id, "upload")) {
-						this = this;
-					}
 					if (this->onCompleteCallback) {
 						if (result == CURLE_OK) {
 							this->onCompleteCallback(this, true);
@@ -710,9 +687,7 @@ void Central_ProcessResponses(void)
 					}
 
 					// free memory
-					curl_formfree(this->first_form_ptr);
-					Q_free(this->request_id);
-					Q_free(this);
+					Web_FreeRequest(this);
 
 					break;
 				}
@@ -720,7 +695,6 @@ void Central_ProcessResponses(void)
 				list_pointer = &this->next;
 			}
 
-			curl_easy_cleanup(handle);
 		}
 	}
 
@@ -729,7 +703,11 @@ void Central_ProcessResponses(void)
 
 		Web_ConstructURL(url, CHECKIN_PATH, sizeof(url));
 
-		Web_SubmitRequestForm(url, NULL, NULL, Web_PostResponse, NULL, NULL);
+		{
+			web_request_data_t* data = Web_CreateRequest(Web_PostResponse, NULL, NULL);
+			if (data)
+				Web_SubmitRequestForm(url, data);
+		}
 
 		last_checkin_time = curtime;
 	}
@@ -741,6 +719,12 @@ void Central_ProcessResponses(void)
 void Central_Shutdown(void)
 {
 	if (curl_handle) {
+		while (web_requests) {
+			web_request_data_t* data = web_requests;
+			web_requests = data->next;
+			curl_multi_remove_handle(curl_handle, data->handle);
+			Web_FreeRequest(data);
+		}
 		curl_multi_cleanup(curl_handle);
 		curl_handle = NULL;
 	}

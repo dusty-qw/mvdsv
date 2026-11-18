@@ -44,6 +44,12 @@ long FS_FileLength (FILE *f);
 void FS_FileBase (char *in, char *out);
 #define COM_FileBase FS_FileBase // ezquake compatibility
 
+// Returns false and clears the output if the complete path does not fit.
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((format(printf, 3, 4)))
+#endif
+qbool FS_FormatPath(char *path, size_t size, const char *format, ...);
+
 void FS_WriteFile (char *filename, void *data, int len);
 
 byte *FS_LoadTempFile (char *path, int *len);

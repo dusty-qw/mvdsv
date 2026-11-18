@@ -427,8 +427,15 @@ void SV_SpawnServer(char *mapname, qbool devmap, char* entityfile, qbool loading
 	extern cvar_t sv_loadentfiles, sv_loadentfiles_dir;
 	char *entitystring;
 	char oldmap[MAP_NAME_LEN];
+	char modelname[sizeof(sv.modelname)];
 	extern qbool	sv_allow_cheats;
 	extern cvar_t	sv_cheats, sv_paused, sv_bigcoords;
+
+	if (strlen(mapname) >= sizeof(sv.mapname) ||
+		!FS_FormatPath(modelname, sizeof(modelname), "maps/%s.bsp", mapname)) {
+		Con_Printf("Map name is too long\n");
+		return;
+	}
 
 	// store old map name
 	snprintf (oldmap, MAP_NAME_LEN, "%s", sv.mapname);
@@ -694,7 +701,7 @@ void SV_SpawnServer(char *mapname, qbool devmap, char* entityfile, qbool loading
 
 	// fill sv.mapname and sv.modelname with new map name
 	strlcpy (sv.mapname, mapname, sizeof(sv.mapname));
-	snprintf (sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", sv.mapname);
+	strlcpy(sv.modelname, modelname, sizeof(sv.modelname));
 #ifndef SERVERONLY
 	// set cvar
 	Cvar_ForceSet (&host_mapname, mapname);
@@ -707,7 +714,8 @@ void SV_SpawnServer(char *mapname, qbool devmap, char* entityfile, qbool loading
 
 		// fill mapname, sv.mapname and sv.modelname with old map name
 		strlcpy (sv.mapname, oldmap, sizeof(sv.mapname)); 
-		snprintf (sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", sv.mapname);
+		if (!FS_FormatPath(sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", sv.mapname))
+			SV_Error("Fallback map path is too long");
 		mapname = oldmap;
 
 		// and re-load old map
