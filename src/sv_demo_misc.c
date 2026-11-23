@@ -846,7 +846,7 @@ void SV_MVDEmbedInfo_f(void)
 	FILE* src;
 	byte* buf;
 	size_t sz;
-	char name[MAX_OSPATH];
+	const char* name;
 	char path[MAX_OSPATH];
 
 	if (Cmd_Argc() == 1) {
@@ -855,13 +855,13 @@ void SV_MVDEmbedInfo_f(void)
 		return;
 	}
 
-	// No config files, no sub-directories
-	strlcpy(name, Cmd_Argv(1), sizeof(name));
-	if (!FS_FormatPath(path, sizeof(path), "%s/%s", fs_gamedir, Cmd_Argv(1))) {
+	name = Cmd_Argv(1);
+	if (FS_UnsafeFilename(name) || FS_HasAmbiguousWindowsPath(name) || !strcasecmp(COM_FileExtension(name), "cfg")) {
+		Con_Printf("Unsafe filename detected - cancelled\n");
 		return;
 	}
-	if (FS_UnsafeFilename(path) || !strcasecmp(COM_FileExtension(name), "cfg")) {
-		Con_Printf("Unsafe filename detected - cancelled\n");
+
+	if (!FS_FormatPath(path, sizeof(path), "%s/%s", fs_gamedir, name)) {
 		return;
 	}
 

@@ -579,7 +579,8 @@ static void Web_PostFileRequest_f(void)
 	web_request_data_t* data;
 	char url[512];
 	char path[MAX_OSPATH];
-	const char* specified;
+	char demo_path[MAX_OSPATH];
+	const char* filename;
 
 	if (!sv_www_address.string[0]) {
 		Con_Printf("Address not set - functionality disabled\n");
@@ -591,30 +592,39 @@ static void Web_PostFileRequest_f(void)
 		return;
 	}
 
-	specified = Cmd_Argv(3);
-	if (specified[0] == '*' && specified[1] == '\0') {
+	filename = Cmd_Argv(3);
+	if (filename[0] == '*' && filename[1] == '\0') {
 		const char* demoname = SV_MVDDemoName();
+		const char* sidecar;
 
 		if (!sv.mvdrecording || !demoname) {
 			Con_Printf("Not recording demo!\n");
 			return;
 		}
 
-		if (!FS_FormatPath(path, sizeof(path), "%s/%s/%s", fs_gamedir, sv_demoDir.string, SV_MVDName2Txt(demoname)))
-			return;
-	}
-	else {
-		if (strstr(specified, ".cfg") || FS_UnsafeFilename(specified)) {
+		sidecar = SV_MVDName2Txt(demoname);
+		if (!sidecar) {
 			Con_Printf("Filename invalid\n");
 			return;
 		}
 
-		if (!FS_FormatPath(path, sizeof(path), "%s/%s", fs_gamedir, specified))
+		// The recorder appends the configured directory even if it starts with a slash.
+		if (!FS_FormatPath(demo_path, sizeof(demo_path), "%s/%s", sv_demoDir.string, sidecar))
 			return;
+		if (strstr(demo_path, "..") || FS_HasAmbiguousWindowsPath(demo_path)) {
+			Con_Printf("Filename invalid\n");
+			return;
+		}
+
+		filename = demo_path;
+	} else if (FS_UnsafeFilename(filename) || FS_HasAmbiguousWindowsPath(filename)
+		|| strstr(filename, ".cfg")
+		|| !strcasecmp(COM_FileExtension(filename), "cfg")) {
+		Con_Printf("Filename invalid\n");
+		return;
 	}
 
-	if (FS_UnsafeFilename(path)) {
-		Con_Printf("Filename invalid\n");
+	if (!FS_FormatPath(path, sizeof(path), "%s/%s", fs_gamedir, filename)) {
 		return;
 	}
 
